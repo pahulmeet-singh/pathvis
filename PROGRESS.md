@@ -21,7 +21,7 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 
 ---
 
-## Status: Step 1 complete ✅ (scaffold)
+## Status: Step 2 complete ✅ (grid/data model)
 
 ### Fully done
 - Vite + React 19 + TypeScript 6 project scaffolded at project root (`pathvis/`).
@@ -38,17 +38,32 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
   App.css).
 - `npm run build` passes clean (no errors, no warnings).
 - `npm run lint` (oxlint, the template's default linter) passes clean.
-- Git repo initialized, step 1 committed.
+- **`src/lib/grid/types.ts`** — `CellType`, `Position`, `GridNode`, `Grid`,
+  `GridDimensions`, `MUD_WEIGHT` constant. `GridNode` is structural only
+  (row, col, type, weight) — see architecture notes below for why.
+- **`src/lib/grid/gridUtils.ts`** — `createEmptyGrid`, `defaultStartEnd`,
+  `cloneGrid`, `getNeighbors` (4-directional, wall-excluded, bounds-checked
+  — this *is* the graph adjacency logic), `setCellType` (immutable, protects
+  start/end from being painted over), `moveAnchor` (immutable, rejects
+  moving onto a wall or onto the other anchor), `getStart`/`getEnd`/
+  `findByType`, `countByType`, `posKey`, `gridDimensions`,
+  `isWithinBounds`.
+- `src/lib/grid/index.ts` barrel export.
+- Verified at runtime (not just type-checked) via `.scratch/verify-grid.ts`:
+  neighbor counts at corners (2) vs interior (4), wall correctly removes a
+  cell from its neighbor's neighbor-list, immutability (original grid
+  untouched after `setCellType`), start/end protection, anchor-move
+  rejection onto walls/the other anchor. All passed.
 
 ### In progress
-- Nothing mid-flight. Step 1 is a clean stopping point.
+- Nothing mid-flight. Step 2 is a clean stopping point.
 
 ### Next up
-- **Step 2: Grid/data model** — `src/lib/grid/types.ts` (CellType, Position,
-  GridNode, Grid) and `src/lib/grid/gridUtils.ts` (createGrid, cloneGrid,
-  getNeighbors, posKey, setCellType, findStart/End, etc.)
-- Then step 3 (maze gen), step 4 (pathfinding algorithms) — see full plan
-  below once step 2 lands.
+- **Step 3: Maze generation** — `src/lib/mazeGen/mazeUtils.ts` (shared
+  wall-grid + room-neighbor helpers), `randomizedDFS.ts` (recursive
+  backtracker), `randomizedPrims.ts`, plus a `placeStartAndEnd` step
+  decoupled from carving. See "room-grid trick" in architecture notes.
+- Then step 4 (pathfinding algorithms as generators).
 
 ### Decisions made (things the user should know about)
 1. **Tailwind v4, not v3.** Current stable is v4.3.x, which uses a Vite
