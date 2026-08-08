@@ -12,8 +12,8 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 2. Grid/data model — ✅ done
 3. Maze generation algorithms — ✅ done
 4. Pathfinding algorithms as generator functions — ✅ done
-5. Canvas rendering + grid interactions — ⬅ **next**
-6. Control panel + stats panel
+5. Canvas rendering + grid interactions — ✅ done
+6. Control panel + stats panel — ⬅ **next**
 7. Animation engine tying algorithms to the UI
 8. Comparison mode
 9. Styling pass
@@ -27,128 +27,121 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 
 ### Toolchain (step 1)
 Vite + React 19 + TypeScript 6, Tailwind v4 (`@tailwindcss/vite`, CSS-first
-config in `src/index.css`, no `tailwind.config.js`), Vitest wired into
-`vite.config.ts` (`npm test` / `npm run test:watch`), path alias `@/` → `src/`.
-`npm run build` and `npm run lint` (oxlint) both pass clean, zero warnings.
+config), Vitest wired in (`npm test`), path alias `@/` → `src/`.
+`npm run build` and `npm run lint` (oxlint) both pass clean throughout —
+re-verified after every step, not just at the end.
 
-### `src/lib/grid/` (step 2)
+### `src/lib/grid/` (step 2, + gridEditing.ts added in step 5)
 - `types.ts`: `CellType`, `Position`, `GridNode` (structural only), `Grid`, `MUD_WEIGHT`.
-- `gridUtils.ts`: `createEmptyGrid`, `defaultStartEnd`, `cloneGrid`,
-  `getNeighbors` (4-directional, wall-excluded — the graph adjacency
-  logic), `setCellType` (immutable, protects start/end), `moveAnchor`
-  (immutable, rejects walls/the other anchor), `getStart`/`getEnd`/
-  `findByType`, `countByType`, `posKey`, `gridDimensions`, `isWithinBounds`.
-- Runtime-verified in `.scratch/verify-grid.ts`. All passed.
+- `gridUtils.ts`: creation, cloning, neighbors, immutable cell/anchor edits.
+- `gridEditing.ts` **(new, step 5)**: `applyMouseDown` / `applyMouseEnter` —
+  pure (zero React/DOM) decision logic for what a mousedown/drag on a given
+  cell means (grab anchor / toggle mud / draw wall / erase wall). This is
+  deliberately separated from the canvas component so the interaction
+  rules are testable without a browser — see verification below.
+- Runtime-verified: `.scratch/verify-grid.ts`, `.scratch/verify-grid-editing.ts`.
 
-### `src/lib/mazeGen/` (step 3)
-- `mazeUtils.ts`: `createWallGrid`, `getRoomNeighbors` (room-lattice
-  trick), `wallBetween`, `findNearestEmpty`, `placeStartAndEnd`.
-- `randomizedDFS.ts` (recursive backtracker, explicit stack),
-  `randomizedPrims.ts` (frontier-list growth). Both generators, same
-  yield/return contract. `index.ts` exposes `MAZE_ALGORITHMS` registry.
-- Runtime-verified: both algorithms, 4 grid sizes incl. non-square, **zero
-  unreachable regions** every time. `placeStartAndEnd` never collides.
+### `src/lib/mazeGen/` (step 3) — unchanged, see prior entries in git log.
+### `src/lib/algorithms/` (step 4) — unchanged, see prior entries in git log.
 
-### `src/lib/algorithms/` (step 4)
-- `types.ts`: `AlgoStep` (`"visit" | "path"`), `AlgoResult`
-  (`visitedCount`, `path: Position[] | null`, `pathLength`), `AlgoGenerator`, `AlgoFn`.
-- `priorityQueue.ts`: hand-rolled binary min-heap, `MinPriorityQueue<T>`,
-  lazy-deletion pattern (no decrease-key).
-- `pathUtils.ts`: `reconstructPath` (walks `cameFrom` backward).
-- `bfs.ts`: plain queue (array + head index, not `.shift()`), ignores weight.
-- `dfs.ts`: explicit stack, **neighbor order is shuffled** — see Decision #6.
-- `dijkstra.ts`: priority queue on distance-so-far, respects `weight`.
-- `astar.ts`: priority queue on distance-so-far + Manhattan heuristic.
-- `index.ts`: barrel + `ALGORITHMS` registry (label, one-line description,
-  guarantees-shortest-path flag, time/space complexity strings, `run`) —
-  single source of truth the control panel, stats panel, and viva sheet
-  will all read from.
-- Runtime-verified in `.scratch/verify-algorithms.ts`, run 5x (DFS is now
-  randomized so it needed repeat runs, not just one):
-  - All four algorithms find valid, contiguous start→end paths on an open grid.
-  - BFS and Dijkstra agree on path **length** when all weights are 1.
-  - A* visited count ≤ Dijkstra's, both on an open grid and a real
-    generated maze; A*/Dijkstra path lengths match (both optimal).
-  - Mud test: BFS took the direct route (cost 8, ignoring the mud
-    penalty); Dijkstra/A* both detoured around it for a cheaper path
-    (cost 6) — this is the concrete, numeric proof that mud makes the
-    algorithms *behave* differently, not just theoretically differ.
-  - No-path case returns `path: null`, `pathLength: 0`, no crash, for all
-    four algorithms.
-  - `start === end` returns a length-1 path for all four.
-  - All checks re-run 5x after randomizing DFS to confirm the shuffle
-    never breaks correctness, only changes which (still valid) path is found.
+### `src/components/`, `src/hooks/` (step 5, new)
+- **`canvasPalette.ts`**: cell-type → color map used as canvas `fillStyle`
+  values (canvas can't resolve CSS vars). Explicitly marked as a *working
+  baseline* — real design-token decisions happen in step 9, not here.
+- **`GridCanvas.tsx`**: HTML5 Canvas grid renderer (PRD §4 tech-stack
+  requirement) + raw mouse-to-cell coordinate translation. Responsive
+  (ResizeObserver-driven cell sizing, clamped 10-32px, capped canvas
+  height so tall/narrow grids don't overflow), devicePixelRatio-aware
+  (crisp on retina). Start = filled circle, end = diamond — different
+  *shapes*, not just colors, so the two are distinguishable without
+  relying on color perception. Deliberately has zero knowledge of what a
+  click *means* — it only reports `(cell, modifierHeld)` up to its caller.
+- **`useGridEditor.ts`**: the hook that owns `Grid` state and wires
+  GridCanvas's raw mouse callbacks to `gridEditing.ts`'s pure rules;
+  exposes `resize`, `clearWalls`, and a `locked` flag for the animation
+  engine (step 7) to freeze editing during a run, per the PRD's UI/UX
+  requirement. Global `window` mouseup listener releases a drag even if
+  the pointer leaves the canvas before release.
+- **`App.tsx`**: real (not placeholder) step-5 shell — header + the wired
+  grid, with a one-line interaction hint since there's no control panel
+  yet to explain the controls. Control/stats panels are step 6, not stubs
+  here.
+
+### Verification status for step 5 (read this carefully)
+- `tsc -b`, `npm run build`, `npm run lint`: all clean.
+- **The interaction *logic* is runtime-verified** (`.scratch/verify-grid-editing.ts`,
+  7 scenarios: wall draw+drag, erase+drag, mud toggle, start drag, end
+  drag, anchor-onto-wall rejection, anchor-onto-anchor rejection) — all
+  passed, with zero DOM/browser needed since this logic is pure.
+- **The canvas rendering itself is NOT visually confirmed.** This sandbox
+  has no real browser / screenshot capability, so I cannot see the actual
+  pixels GridCanvas produces — only that the code type-checks, builds,
+  and (by code review) implements the drawing logic correctly. Per PRD
+  §11, UI-interaction verification is scoped to a **manual checklist**
+  (not automated component tests) — that checklist gets written in step
+  10, but the honest status right now is: **please run `npm run dev`
+  yourself on this snapshot** to confirm the grid actually looks and
+  drags the way it's supposed to. If anything looks off, tell me and I'll
+  fix it before continuing — much cheaper to catch now than after steps
+  6-9 build on top of it.
 
 ### Not started yet
-Everything from step 5 onward (see build order above).
+Everything from step 6 onward (see build order above).
 
 ---
 
 ## Decisions the user should know about
-1. **Tailwind v4, not v3** — current stable, Vite-native plugin, no
-   `tailwind.config.js`/`postcss.config.js`.
-2. **`src/App.tsx` is currently a minimal, explicitly-labeled placeholder**
-   — disclosed step-in-progress state, not the "zero placeholder code"
-   rule being violated. Replaced for real in step 5 (next).
-3. **Tests live in top-level `/tests`**, not `src/tests`; `tsconfig.app.json`
-   includes both `src` and `tests`.
-4. **`.scratch/` is gitignored** — throwaway `npx tsx` verification
-   scripts for steps 2-4, not part of the deliverable. Step 10 turns the
-   properties they checked into the real Vitest suite.
-5. **GitHub/Vercel account actions**: clean local git history is being
-   kept throughout; project will be zero-config Vercel-deployable. I don't
-   have the user's credentials for either, so I can't personally push/
-   deploy — exact steps for both come at the end.
-6. **DFS's neighbor exploration order is randomized (Fisher-Yates shuffle)
-   before pushing onto the stack.** With a fixed order (e.g. always
-   up/down/left/right), DFS on an open grid can walk *straight* to the
-   goal with zero backtracking whenever the fixed order happens to favor
-   the goal's direction — confirmed this actually happened in testing
-   (DFS found the exact shortest path, indistinguishable from BFS/A* in
-   the demo). That defeats the entire reason DFS is in the app (PRD §7:
-   "included specifically to visually demonstrate why BFS/Dijkstra
-   matter"). Shuffling the order is still 100% valid DFS — visitation
-   order was never part of DFS's definition — it just makes the
-   wandering/backtracking behavior that's the whole point *visible*.
-   Confirmed via 5 repeat runs that this doesn't break correctness, only
-   changes which (still valid, still connected) path gets found.
+1. **Tailwind v4, Tests in top-level `/tests`, `.scratch/` gitignored,
+   GitHub/Vercel needs the user's own credentials** — unchanged from
+   before, see git log on earlier commits for the original reasoning.
+2. **DFS's neighbor order is shuffled** (step 4) — unchanged, see git log.
+3. **Grids are square (N×N) by default going forward.** PRD FR8 says
+   "adjust grid size (e.g., 15×15 up to 40×40)" — always shown as equal
+   numbers, which reads as one "size" control rather than independent
+   row/col controls. `useGridEditor.resize(rows, cols)` stays fully
+   general underneath (doesn't hard-code square), but the step 6 UI will
+   expose it as a single slider calling `resize(n, n)`. Default grid is
+   25×25.
+4. **Wall-drawing UX**: mousedown on an empty cell starts a "paint walls"
+   drag; mousedown on an existing wall starts an "erase" drag instead —
+   so the same click-drag gesture does both, decided by what you click
+   first. This is the same convention most pathfinding visualizers use
+   and wasn't specified explicitly in the PRD, so documenting the choice
+   here rather than treating it as obvious.
+5. **Canvas visual output is unverified by me** — see the verification
+   section above. This is a real, disclosed gap, not swept under the rug.
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
 - **Data model split**: `GridNode` (React state) is structural-only.
-  `visited`/`distance`/`previous` from the PRD's Node sketch live only
-  inside each generator's local closures — never touch React state, never
-  attach to grid cells. Lets comparison mode (step 8) run two algorithms
-  on the same static grid without them clobbering each other.
-- **Algorithm contract**: `function*(grid, start, end): Generator<AlgoStep, AlgoResult, void>`,
-  yields `{type:"visit",row,col}` per node processed, then
-  `{type:"path",row,col}` per path cell (start→end order) right before
-  returning `AlgoResult`. Zero React imports in `lib/algorithms/` or
-  `lib/mazeGen/` (PRD requirement).
-- **For step 5 (canvas rendering, next):** the canvas needs to render from
-  `Grid` (structural: walls/mud/start/end) *plus* separate ephemeral
-  render state for the current animation (visited set in visit-order,
-  path set, current frontier cell) — that ephemeral state does not belong
-  on `Grid` and doesn't exist yet; it gets designed properly in step 7
-  (animation engine). For step 5 itself, GridCanvas only needs to render
-  the static `Grid` correctly and handle mouse events (wall drawing,
-  start/end dragging via `setCellType`/`moveAnchor` from step 2) — no
-  animation wiring yet, that's step 7 on purpose per the user's ordering.
-- **Frontend design direction for steps 5 & 9**: read `/mnt/skills/public/frontend-design/SKILL.md`
-  guidance again before the styling pass. Subject-appropriate direction to
-  explore: something in the technical/schematic register (circuit-board,
-  topographic-map, or terminal/control-panel register) rather than the
-  generic AI-tool defaults (warm cream+serif, near-black+single-accent,
-  broadsheet) — a graph/grid algorithm visualizer has a lot of real
-  material (grid coordinates, complexity notation, monospace data) to draw
-  a distinctive identity from instead. Finalize the actual token system
-  (colors/type/layout/signature) when step 9 starts, per the skill's
-  two-pass brainstorm-then-critique process — don't lock it in casually
-  as a side effect of step 5.
-- **Priority queue**: lazy deletion (push on improvement, skip stale pops)
-  rather than decrease-key.
-- **BFS queue**: array + head index, not `.shift()`.
-- **A\* heuristic**: Manhattan distance, still admissible with mud since
-  weight ≥ 1 always.
+  Algorithm run-time state lives in generator closures, never on grid
+  cells — lets comparison mode (step 8) run two algorithms on one grid
+  safely.
+- **For step 6 (control panel + stats panel), next:** needs (a) maze
+  algorithm dropdown reading `MAZE_ALGORITHMS` (lib/mazeGen), (b)
+  pathfinding algorithm dropdown reading `ALGORITHMS` (lib/algorithms),
+  (c) grid-size slider calling `resize(n, n)` from `useGridEditor`, (d)
+  speed slider (state only for now — actually used by step 7's animation
+  engine), (e) Generate Maze / Visualize / Reset / Clear buttons, (f)
+  stats panel showing visitedCount/pathLength/execution time — but there's
+  no run result to show until step 7 exists, so stats panel likely renders
+  its "empty" state honestly in step 6 and gets real data wired in step 7.
+  Both panels should read `algo.label`/`algo.shortDescription` etc. from
+  the registries (step 3/4's `index.ts` files) rather than duplicating
+  algorithm facts as literal strings in component code.
+- **For step 7 (animation engine):** this is where per-run ephemeral
+  render state (visited-in-order list, path set, current frontier cell)
+  finally gets designed and wired into GridCanvas as new optional props —
+  GridCanvas's props interface was deliberately left open for this
+  (nothing to refactor, just extend).
+- **Frontend design direction for step 9**: re-read
+  `/mnt/skills/public/frontend-design/SKILL.md` before that pass. Current
+  step 5/6 styling (light slate page, white header, functional canvas
+  palette) is intentionally a plain working baseline, not a design
+  decision to defend later — steps 6-8 should keep using plain Tailwind
+  defaults too rather than accreting one-off style choices, so step 9 is a
+  clean, deliberate pass rather than a patch-over-patches cleanup.
+- **Priority queue**: lazy deletion. **BFS queue**: array + head index.
+  **A\* heuristic**: Manhattan distance, admissible even with mud.
