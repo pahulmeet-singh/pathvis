@@ -12,6 +12,8 @@ export { astar } from "./astar";
 export { bfs } from "./bfs";
 export { dfs } from "./dfs";
 export { dijkstra } from "./dijkstra";
+export type { InstantRun } from "./runInstantly";
+export { runAlgorithmInstantly } from "./runInstantly";
 
 export type AlgorithmId = "bfs" | "dfs" | "dijkstra" | "astar";
 

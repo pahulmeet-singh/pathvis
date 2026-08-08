@@ -9,21 +9,36 @@ const MAX_CANVAS_HEIGHT = 620;
 
 export interface GridCanvasProps {
   grid: Grid;
-  /** True while an algorithm/maze animation is running — freezes editing (PRD UI/UX: controls disabled mid-animation to prevent inconsistent state). Animation overlay rendering itself lands in step 7. */
+  /** True while an algorithm/maze animation is running — freezes editing (PRD UI/UX: controls disabled mid-animation to prevent inconsistent state). */
   disabled?: boolean;
+  /** Cells to paint as "visited" (light blue). Step 6 passes the full set
+   * from an instant run; step 7 will instead grow this list over time to
+   * animate it — this component doesn't care which, it just draws
+   * whatever it's given. */
+  visited?: Position[];
+  /** Cells to paint as the final "path" (green), drawn after/over visited. */
+  path?: Position[];
   onCellMouseDown?: (pos: Position, modifierHeld: boolean) => void;
   onCellMouseEnter?: (pos: Position) => void;
 }
 
 /**
  * Pure rendering + coordinate translation only — this component doesn't
- * know what a "wall" click *means* (see lib/grid/gridEditing.ts for that).
- * It draws the grid and turns raw DOM mouse events into cell positions,
- * nothing more. Mouse-up is intentionally not handled here: it's caught
- * globally by `useGridEditor` so a drag that ends outside the canvas still
- * gets released.
+ * know what a "wall" click *means* (see lib/grid/gridEditing.ts for that),
+ * and doesn't know whether `visited`/`path` came from an instant run or a
+ * timer-driven animation. It draws the grid and turns raw DOM mouse events
+ * into cell positions, nothing more. Mouse-up is intentionally not handled
+ * here: it's caught globally by `useGridEditor` so a drag that ends
+ * outside the canvas still gets released.
  */
-export function GridCanvas({ grid, disabled = false, onCellMouseDown, onCellMouseEnter }: GridCanvasProps) {
+export function GridCanvas({
+  grid,
+  disabled = false,
+  visited,
+  path,
+  onCellMouseDown,
+  onCellMouseEnter,
+}: GridCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastCellRef = useRef<Position | null>(null);
@@ -66,8 +81,8 @@ export function GridCanvas({ grid, disabled = false, onCellMouseDown, onCellMous
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawGrid(ctx, grid, cellSize);
-  }, [grid, cellSize, canvasWidth, canvasHeight]);
+    drawGrid(ctx, grid, cellSize, visited, path);
+  }, [grid, cellSize, canvasWidth, canvasHeight, visited, path]);
 
   function cellFromEvent(e: React.MouseEvent<HTMLCanvasElement>): Position | null {
     const canvas = canvasRef.current;
@@ -115,16 +130,39 @@ export function GridCanvas({ grid, disabled = false, onCellMouseDown, onCellMous
   );
 }
 
-function drawGrid(ctx: CanvasRenderingContext2D, grid: Grid, cellSize: number) {
+function drawGrid(
+  ctx: CanvasRenderingContext2D,
+  grid: Grid,
+  cellSize: number,
+  visited: Position[] | undefined,
+  path: Position[] | undefined,
+) {
   const { rows, cols } = gridDimensions(grid);
+
+  // Sets for O(1) membership checks. Rebuilt on every draw, which only
+  // happens once per "Visualize"/"Generate maze" click right now (step 6)
+  // — cheap even at 1600 cells. Step 7's per-frame animation loop will
+  // need to think harder about this; this component doesn't have to yet.
+  const pathSet = new Set(path?.map((p) => `${p.row},${p.col}`));
+  const visitedSet = new Set(visited?.map((p) => `${p.row},${p.col}`));
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = grid[r][c];
       const x = c * cellSize;
       const y = r * cellSize;
+      const key = `${r},${c}`;
 
-      ctx.fillStyle = CELL_COLORS[cell.type];
+      let fill = CELL_COLORS[cell.type];
+      // Start/end always show their own dedicated color + marker, never
+      // the visited/path overlay — an anchor should never look "explored
+      // over," it should always read as an anchor.
+      if (cell.type !== "start" && cell.type !== "end") {
+        if (pathSet.has(key)) fill = CELL_COLORS.path;
+        else if (visitedSet.has(key)) fill = CELL_COLORS.visited;
+      }
+
+      ctx.fillStyle = fill;
       ctx.fillRect(x, y, cellSize, cellSize);
 
       if (cell.type === "start" || cell.type === "end") {

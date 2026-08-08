@@ -12,7 +12,6 @@ export interface UseGridEditorResult {
   grid: Grid;
   setGrid: (grid: Grid) => void;
   resize: (rows: number, cols: number) => void;
-  clearWalls: () => void;
   locked: boolean;
   setLocked: (locked: boolean) => void;
   handleCellMouseDown: (pos: Position, modifierHeld: boolean) => void;
@@ -36,16 +35,6 @@ export function useGridEditor(
 
   const resize = useCallback((rows: number, cols: number) => {
     setGrid(createEmptyGrid(rows, cols));
-  }, []);
-
-  const clearWalls = useCallback(() => {
-    setGrid((g) =>
-      g.map((row) =>
-        row.map((cell) =>
-          cell.type === "wall" || cell.type === "mud" ? { ...cell, type: "empty", weight: 1 } : cell,
-        ),
-      ),
-    );
   }, []);
 
   // Not using the functional setGrid(g => ...) form here on purpose: this
@@ -84,5 +73,5 @@ export function useGridEditor(
     return () => window.removeEventListener("mouseup", handleWindowMouseUp);
   }, []);
 
-  return { grid, setGrid, resize, clearWalls, locked, setLocked, handleCellMouseDown, handleCellMouseEnter };
+  return { grid, setGrid, resize, locked, setLocked, handleCellMouseDown, handleCellMouseEnter };
 }

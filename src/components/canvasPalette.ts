@@ -9,11 +9,13 @@ import type { CellType } from "@/lib/grid/types";
  * is a deliberate step 9 decision, not something to lock in as a side
  * effect of getting the grid to render.
  */
-export const CELL_COLORS: Record<CellType, string> & { gridLine: string } = {
+export const CELL_COLORS: Record<CellType, string> & { gridLine: string; visited: string; path: string } = {
   empty: "#f8fafc",
   wall: "#1e293b",
   mud: "#92400e",
   start: "#16a34a",
   end: "#e11d48",
   gridLine: "#e2e8f0",
+  visited: "#bfdbfe",
+  path: "#86efac",
 };

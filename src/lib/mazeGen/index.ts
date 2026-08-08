@@ -5,6 +5,7 @@ import { randomizedPrims } from "./randomizedPrims";
 export { findNearestEmpty, getRoomNeighbors, placeStartAndEnd, wallBetween } from "./mazeUtils";
 export { randomizedDFS } from "./randomizedDFS";
 export { randomizedPrims } from "./randomizedPrims";
+export { generateMazeInstantly } from "./generateInstantly";
 
 export type MazeGenerator = Generator<Position, Grid, void>;
 export type MazeAlgorithmId = "randomized-dfs" | "randomized-prims";
