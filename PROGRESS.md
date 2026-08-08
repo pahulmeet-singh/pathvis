@@ -11,8 +11,8 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 1. Project scaffold + folder structure — ✅ done
 2. Grid/data model — ✅ done
 3. Maze generation algorithms — ✅ done
-4. Pathfinding algorithms as generator functions — ⬅ **next**
-5. Canvas rendering + grid interactions
+4. Pathfinding algorithms as generator functions — ✅ done
+5. Canvas rendering + grid interactions — ⬅ **next**
 6. Control panel + stats panel
 7. Animation engine tying algorithms to the UI
 8. Comparison mode
@@ -32,34 +32,55 @@ config in `src/index.css`, no `tailwind.config.js`), Vitest wired into
 `npm run build` and `npm run lint` (oxlint) both pass clean, zero warnings.
 
 ### `src/lib/grid/` (step 2)
-- `types.ts`: `CellType`, `Position`, `GridNode` (structural only — row,
-  col, type, weight; **no** visited/distance/previous, see "Architecture"
-  below), `Grid`, `MUD_WEIGHT`.
+- `types.ts`: `CellType`, `Position`, `GridNode` (structural only), `Grid`, `MUD_WEIGHT`.
 - `gridUtils.ts`: `createEmptyGrid`, `defaultStartEnd`, `cloneGrid`,
-  `getNeighbors` (4-directional, wall-excluded — this IS the graph
-  adjacency logic every pathfinding algorithm uses), `setCellType`
-  (immutable, protects start/end from being painted over), `moveAnchor`
+  `getNeighbors` (4-directional, wall-excluded — the graph adjacency
+  logic), `setCellType` (immutable, protects start/end), `moveAnchor`
   (immutable, rejects walls/the other anchor), `getStart`/`getEnd`/
   `findByType`, `countByType`, `posKey`, `gridDimensions`, `isWithinBounds`.
-- Runtime-verified in `.scratch/verify-grid.ts` (neighbor counts, wall
-  removal, immutability, anchor protection/rejection). All passed.
+- Runtime-verified in `.scratch/verify-grid.ts`. All passed.
 
 ### `src/lib/mazeGen/` (step 3)
-- `mazeUtils.ts`: `createWallGrid`, `getRoomNeighbors` (room-lattice trick:
-  even row/col = room, odd = wall-between-rooms), `wallBetween`,
-  `findNearestEmpty` (BFS flood fill), `placeStartAndEnd`.
-- `randomizedDFS.ts`: recursive backtracker, explicit stack.
-- `randomizedPrims.ts`: frontier-list growth, visibly branchier result.
-- Both are generators yielding each carved cell, returning the finished
-  `Grid`. `index.ts` exposes a `MAZE_ALGORITHMS` registry for the future
-  dropdown (FR1).
-- Runtime-verified in `.scratch/verify-mazegen.ts`: **both** algorithms at
-  15×15, 20×30, 21×21, 8×8 — flood-fill from origin reaches exactly every
-  carved cell (zero unreachable regions) at every size. `placeStartAndEnd`
-  never collides, always lands on non-wall cells. All passed.
+- `mazeUtils.ts`: `createWallGrid`, `getRoomNeighbors` (room-lattice
+  trick), `wallBetween`, `findNearestEmpty`, `placeStartAndEnd`.
+- `randomizedDFS.ts` (recursive backtracker, explicit stack),
+  `randomizedPrims.ts` (frontier-list growth). Both generators, same
+  yield/return contract. `index.ts` exposes `MAZE_ALGORITHMS` registry.
+- Runtime-verified: both algorithms, 4 grid sizes incl. non-square, **zero
+  unreachable regions** every time. `placeStartAndEnd` never collides.
+
+### `src/lib/algorithms/` (step 4)
+- `types.ts`: `AlgoStep` (`"visit" | "path"`), `AlgoResult`
+  (`visitedCount`, `path: Position[] | null`, `pathLength`), `AlgoGenerator`, `AlgoFn`.
+- `priorityQueue.ts`: hand-rolled binary min-heap, `MinPriorityQueue<T>`,
+  lazy-deletion pattern (no decrease-key).
+- `pathUtils.ts`: `reconstructPath` (walks `cameFrom` backward).
+- `bfs.ts`: plain queue (array + head index, not `.shift()`), ignores weight.
+- `dfs.ts`: explicit stack, **neighbor order is shuffled** — see Decision #6.
+- `dijkstra.ts`: priority queue on distance-so-far, respects `weight`.
+- `astar.ts`: priority queue on distance-so-far + Manhattan heuristic.
+- `index.ts`: barrel + `ALGORITHMS` registry (label, one-line description,
+  guarantees-shortest-path flag, time/space complexity strings, `run`) —
+  single source of truth the control panel, stats panel, and viva sheet
+  will all read from.
+- Runtime-verified in `.scratch/verify-algorithms.ts`, run 5x (DFS is now
+  randomized so it needed repeat runs, not just one):
+  - All four algorithms find valid, contiguous start→end paths on an open grid.
+  - BFS and Dijkstra agree on path **length** when all weights are 1.
+  - A* visited count ≤ Dijkstra's, both on an open grid and a real
+    generated maze; A*/Dijkstra path lengths match (both optimal).
+  - Mud test: BFS took the direct route (cost 8, ignoring the mud
+    penalty); Dijkstra/A* both detoured around it for a cheaper path
+    (cost 6) — this is the concrete, numeric proof that mud makes the
+    algorithms *behave* differently, not just theoretically differ.
+  - No-path case returns `path: null`, `pathLength: 0`, no crash, for all
+    four algorithms.
+  - `start === end` returns a length-1 path for all four.
+  - All checks re-run 5x after randomizing DFS to confirm the shuffle
+    never breaks correctness, only changes which (still valid) path is found.
 
 ### Not started yet
-Everything from step 4 onward (see build order above).
+Everything from step 5 onward (see build order above).
 
 ---
 
@@ -67,51 +88,67 @@ Everything from step 4 onward (see build order above).
 1. **Tailwind v4, not v3** — current stable, Vite-native plugin, no
    `tailwind.config.js`/`postcss.config.js`.
 2. **`src/App.tsx` is currently a minimal, explicitly-labeled placeholder**
-   ("Scaffold OK" message) — this is the disclosed step-1-of-12 state, not
-   the "zero placeholder code" rule being violated. Replaced for real in
-   step 5.
+   — disclosed step-in-progress state, not the "zero placeholder code"
+   rule being violated. Replaced for real in step 5 (next).
 3. **Tests live in top-level `/tests`**, not `src/tests`; `tsconfig.app.json`
-   includes both `src` and `tests` so tests get the same path alias/
-   strictness and are type-checked by `tsc -b` during `npm run build`.
-4. **`.scratch/` is gitignored** — throwaway `npx tsx` scripts used to
-   verify steps 2-4 at runtime before the formal Vitest suite goes in at
-   step 10 (per the user's own step ordering). Not part of the deliverable.
-5. **GitHub/Vercel account actions**: clean local git history is being kept
-   the whole way through, and the project will be zero-config Vercel-
-   deployable. I don't have the user's GitHub/Vercel credentials, so I
-   can't personally push or trigger a deploy — exact copy-paste steps for
-   both come at the end.
+   includes both `src` and `tests`.
+4. **`.scratch/` is gitignored** — throwaway `npx tsx` verification
+   scripts for steps 2-4, not part of the deliverable. Step 10 turns the
+   properties they checked into the real Vitest suite.
+5. **GitHub/Vercel account actions**: clean local git history is being
+   kept throughout; project will be zero-config Vercel-deployable. I don't
+   have the user's credentials for either, so I can't personally push/
+   deploy — exact steps for both come at the end.
+6. **DFS's neighbor exploration order is randomized (Fisher-Yates shuffle)
+   before pushing onto the stack.** With a fixed order (e.g. always
+   up/down/left/right), DFS on an open grid can walk *straight* to the
+   goal with zero backtracking whenever the fixed order happens to favor
+   the goal's direction — confirmed this actually happened in testing
+   (DFS found the exact shortest path, indistinguishable from BFS/A* in
+   the demo). That defeats the entire reason DFS is in the app (PRD §7:
+   "included specifically to visually demonstrate why BFS/Dijkstra
+   matter"). Shuffling the order is still 100% valid DFS — visitation
+   order was never part of DFS's definition — it just makes the
+   wandering/backtracking behavior that's the whole point *visible*.
+   Confirmed via 5 repeat runs that this doesn't break correctness, only
+   changes which (still valid, still connected) path gets found.
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
-- **Data model split**: `GridNode` (in `Grid`, React state) is *structural
-  only*. `visited`/`distance`/`previous` from the PRD's Node sketch are
-  algorithm run-time scratch state — they live inside each generator's own
-  local `Map`/`Set` closures (see step 4), never touch React state, and
-  never get attached to grid cells. This is what lets the same static grid
-  be handed to two simultaneous algorithm runs in comparison mode (step 8)
-  without them clobbering each other's bookkeeping.
-- **Algorithm contract (step 4, about to be built)**: every algorithm in
-  `lib/algorithms/*.ts` is
-  `function*(grid, start, end): Generator<AlgoStep, AlgoResult, void>`,
-  yielding `{ type: "visit", row, col }` per node processed, then
-  `{ type: "path", row, col }` per path cell (in order, start→end) right
-  before returning `AlgoResult { visitedCount, path, pathLength }`
-  (`path: null` if unreachable). Zero React imports in this folder (PRD
-  requirement) — same reason maze gen has zero React imports.
-- **Maze gen contract**: `function*(rows, cols): Generator<Position, Grid, void>`,
-  yields each carved cell, returns the finished wall/empty `Grid`. Start/end
-  placement is a deliberately separate pass (`placeStartAndEnd`), decoupled
-  from carving.
-- **Priority queue plan for step 4**: hand-rolled binary min-heap in
-  `lib/algorithms/priorityQueue.ts`, shared by `dijkstra.ts` and `astar.ts`,
-  using **lazy deletion** (push a new entry on distance improvement, skip
-  stale entries when popped) rather than decrease-key — simpler to
-  implement correctly, same asymptotic complexity, good viva line.
-- **BFS queue**: plain array + head index pointer (not `.shift()`, which is
-  O(n) per call) — O(1) amortized dequeue.
-- **A\* heuristic**: Manhattan distance. Still admissible even with mud
-  (weight ≥ 1 always), since Manhattan assumes minimum possible per-step
-  cost of 1 — worth a line in the viva sheet.
+- **Data model split**: `GridNode` (React state) is structural-only.
+  `visited`/`distance`/`previous` from the PRD's Node sketch live only
+  inside each generator's local closures — never touch React state, never
+  attach to grid cells. Lets comparison mode (step 8) run two algorithms
+  on the same static grid without them clobbering each other.
+- **Algorithm contract**: `function*(grid, start, end): Generator<AlgoStep, AlgoResult, void>`,
+  yields `{type:"visit",row,col}` per node processed, then
+  `{type:"path",row,col}` per path cell (start→end order) right before
+  returning `AlgoResult`. Zero React imports in `lib/algorithms/` or
+  `lib/mazeGen/` (PRD requirement).
+- **For step 5 (canvas rendering, next):** the canvas needs to render from
+  `Grid` (structural: walls/mud/start/end) *plus* separate ephemeral
+  render state for the current animation (visited set in visit-order,
+  path set, current frontier cell) — that ephemeral state does not belong
+  on `Grid` and doesn't exist yet; it gets designed properly in step 7
+  (animation engine). For step 5 itself, GridCanvas only needs to render
+  the static `Grid` correctly and handle mouse events (wall drawing,
+  start/end dragging via `setCellType`/`moveAnchor` from step 2) — no
+  animation wiring yet, that's step 7 on purpose per the user's ordering.
+- **Frontend design direction for steps 5 & 9**: read `/mnt/skills/public/frontend-design/SKILL.md`
+  guidance again before the styling pass. Subject-appropriate direction to
+  explore: something in the technical/schematic register (circuit-board,
+  topographic-map, or terminal/control-panel register) rather than the
+  generic AI-tool defaults (warm cream+serif, near-black+single-accent,
+  broadsheet) — a graph/grid algorithm visualizer has a lot of real
+  material (grid coordinates, complexity notation, monospace data) to draw
+  a distinctive identity from instead. Finalize the actual token system
+  (colors/type/layout/signature) when step 9 starts, per the skill's
+  two-pass brainstorm-then-critique process — don't lock it in casually
+  as a side effect of step 5.
+- **Priority queue**: lazy deletion (push on improvement, skip stale pops)
+  rather than decrease-key.
+- **BFS queue**: array + head index, not `.shift()`.
+- **A\* heuristic**: Manhattan distance, still admissible with mud since
+  weight ≥ 1 always.
