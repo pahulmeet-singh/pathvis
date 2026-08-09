@@ -5,7 +5,7 @@
 > the plan back to the user — just keep building. This file is a single
 > current-status snapshot, not a running log — replace whole sections in
 > place when a step completes, don't append a new "Status" block on top of
-> an old one.
+> an one.
 
 Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 1. Project scaffold + folder structure — ✅ done
@@ -15,154 +15,114 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 5. Canvas rendering + grid interactions — ✅ done
 6. Control panel + stats panel — ✅ done
 7. Animation engine tying algorithms to the UI — ✅ done
-8. Comparison mode — ⬅ **next**
-9. Styling pass
+8. Comparison mode — ✅ done
+9. Styling pass — ⬅ **next**
 10. Tests
 11. README + viva cheat sheet + demo script
 12. Final build check
 
 **Note on the user's situation:** the person building this cannot run
 `npm run dev` themselves at this stage, and I have no browser in this
-sandbox. I've been proactively using the Visualizer tool to show faithful
-hand-ported previews (same colors, same algorithm logic) inline in chat —
-so far: a static palette preview, a live clickable BFS demo, and (this
-step) a *timed* animated BFS demo with a moving yellow frontier, matching
-the real engine's visual behavior. Worth doing once more after step 9
-(styling), since that's the remaining step with the highest "hard to
-picture from text" payoff — comparison mode (step 8) is more naturally
-explained since it's "the same single-run behavior, twice, side by side."
+sandbox. Three Visualizer-tool previews so far (static palette, live click
+demo, timed animated demo) covered the visual language before this step.
+Comparison mode itself didn't get a fourth preview — deliberately: it's
+"the same single-run behavior, twice, side by side," not a new visual
+language, so a preview would add little. **Styling (step 9, next) is
+where a preview is actually worth doing again** — a real visual identity
+change is exactly the kind of thing that's hard to picture from text.
 
 ---
 
 ## What's built so far
 
-### Toolchain (step 1) · `lib/grid/` (step 2) · `lib/mazeGen/` (step 3)
-### `lib/algorithms/` (step 4) · canvas + interactions (step 5)
-Unchanged this step — see git log on those commits for details. All still
-verified clean (re-ran every `.scratch/*.ts` script this step, zero
-regressions — see below).
+### Steps 1-7
+Unchanged this step — toolchain, grid/maze/algorithm libs, canvas +
+interactions, control/stats panels, the rAF-paced animation engine. All
+re-verified clean this step too (see below). See git log for per-step
+detail.
 
-### Step 6 → Step 7: instant reveal became real animation
-Step 6 built `ControlPanel`/`StatsPanel` wired to an *instant* (all-at-once)
-reveal. Step 7 replaces the mechanism underneath, not the UI contract:
+### Step 8: Comparison mode
+- **`ComparisonView.tsx`** (new): two `GridCanvas` instances reading the
+  *same* shared `grid` (PRD §3: "identical grids") — editing either one
+  edits the one underlying grid both are displaying, there's no separate
+  "grid A"/"grid B" to keep in sync. Each canvas gets its own
+  visited/path/current overlay from its own `useSolver` instance.
+- **`ComparisonStatsPanel.tsx`** (new): the actual payoff of the feature —
+  nodes visited / path length / time complexity / execution time for both
+  algorithms, side by side, so "A* visits fewer nodes than Dijkstra" is a
+  number you can read, not a claim you take on faith.
+- **`ControlPanel.tsx`**: added a "Compare" checkbox that switches
+  "Algorithm" → "Algorithm A" and reveals an "Algorithm B" picker; the
+  run button becomes "Compare" (label + behavior) instead of "Visualize."
+- **`App.tsx`**: a *second*, fully independent `useSolver()` instance
+  (`solverB`) — the hook was never written assuming it's a singleton, so
+  this needed zero changes to `useSolver.ts` itself. `handleRun()` calls
+  `solverA.solve(...)` and, only in comparison mode, `solverB.solve(...)`
+  — both in the same synchronous event handler, both given the same
+  `speed`. Layout swaps `GridCanvas`+`StatsPanel` for
+  `ComparisonView`+`ComparisonStatsPanel` based on `comparisonMode`,
+  reusing the same outer page structure.
 
-- **`src/lib/animationSpeed.ts`** (new): `AnimationSpeed` type
-  (`instant|fast|medium|slow`), `SPEED_STEP_DELAY_MS` (0/4/12/35ms — 0
-  means "skip animation, drain synchronously," not "animate with a 0ms
-  budget"), `SPEED_LABELS`. Single source of truth shared by both engines
-  below, so there's exactly one speed control in the UI, not two.
-- **`useSolver.ts`** (rewritten): `solve()` now takes `speed` as a
-  parameter. At `instant` it still calls `runAlgorithmInstantly` directly
-  (same code path step 6 verified). Otherwise it steps the *same*
-  generator via `requestAnimationFrame`, using a **time accumulator**
-  (not "one step per frame") so a dropped/slow frame doesn't desync the
-  total animation length — verified this specific property in
-  `.scratch/verify-animation-pacing.ts` (see below). Also now tracks
-  `current` (the single most-recently-processed cell — the "frontier"
-  highlight) and exposes `isRunning`. A `runIdRef` generation counter
-  invalidates any in-flight animation when a new run starts or `reset()`
-  is called, so a stale timer callback can never write into newer state.
-- **`useMazeGenerator.ts`** (new hook): same accumulator/rAF pattern, but
-  maze generation has a different shape — there's no separate overlay, the
-  *Grid itself* is what's progressively revealed (walls → empty as carving
-  proceeds). Takes `useGridEditor`'s `setGrid` directly and drives it.
-  Batches all of one frame's newly-carved cells into a single grid clone
-  (not one clone per yield) before calling `setGrid`.
-- **`useGridEditor.ts`**: removed the `locked`/`setLocked` state added in
-  step 5/speculated-on in step 6. Two animation engines both needing to
-  gate editing made a *third* independently-owned lock flag a real
-  liability (three booleans to keep in sync by hand). `App.tsx` now
-  computes `isBusy = isRunning || isGenerating` once and passes it as
-  `GridCanvas`'s `disabled` prop — which already refuses to invoke the
-  mouse handlers at all when disabled, so that's sufficient; no separate
-  lock needed inside the handlers themselves.
-- **`GridCanvas.tsx`**: added a `current` prop (frontier highlight,
-  yellow, drawn with the highest overlay priority after start/end's own
-  marker). Zero other changes needed — confirms the step 5/6 design bet
-  that this component wouldn't care where `visited`/`path` came from.
-- **`canvasPalette.ts`** / **`Legend.tsx`**: added `frontier` color +
-  legend entry — the legend now covers every PRD §10 color-legend item
-  that currently exists in the app.
-- **`ControlPanel.tsx`**: added the animation-speed slider (FR7 — a
-  slider with 4 named positions, not a dropdown, per the PRD's literal
-  wording), a `disabled` prop that freezes every control together during
-  either engine's run, and button labels that switch to "Generating…" /
-  "Visualizing…" while their respective engine is active.
-- **`App.tsx`**: wires both engines + `speed` state (owned here, passed
-  into both `solve()` and `generate()` calls) together. `isBusy` gates the
-  canvas and the whole control panel as one unit.
+### How the sync actually works (important to understand, not just trust)
+Nothing new was built to "synchronize" the two runs — no shared clock
+object, no coordinator. The sync is a *consequence* of how
+`requestAnimationFrame` works: callbacks requested within the same
+synchronous task share that upcoming frame's timestamp. Since both
+`solve()` calls request their first frame in the same handler, and each
+one's `tick` re-requests the next frame at the end of its own processing,
+both loops keep landing in the same frames with the same `now` value on
+every subsequent tick too — which means their accumulator math (delay,
+elapsed time) stays identical between them for as long as both are still
+running. This was a real, checkable prediction, not just a hope — see
+verification below.
 
 ### Verification status
 - `tsc -b`, `npm run build`, `npm run lint`: clean.
-- All 5 pre-existing `.scratch/*.ts` scripts re-run after this step's
-  edits — zero regressions.
-- **New: `.scratch/verify-animation-pacing.ts`** — since `useSolver`/
-  `useMazeGenerator` need a real browser (`requestAnimationFrame`) to
-  execute, this instead re-implements the exact same accumulator
-  algorithm and drives it with **synthetic frame timestamps** against a
-  real `bfs()` generator, so the pacing *math* is checked deterministically
-  in Node. Confirmed: (1) steady 60fps frames pace out steps and the run
-  finishes; (2) a large simulated time gap (tab backgrounded, then
-  refocused) releases a proportional burst and finishes in ~2 frames
-  instead of the ~151 steady frames it needed at normal pace — not
-  stalled, not capped; (3) a smaller per-step delay consumes measurably
-  more steps than a larger one for the same elapsed time (fast vs. slow
-  actually differ in the right direction). This validates the *pattern*
-  both hooks use; the hooks' own React/rAF plumbing is still unverified by
-  me directly, for the same no-browser-in-sandbox reason as steps 5-6.
-- Built a **third** Visualizer preview this step (see note above): a
-  timer-paced BFS animation with a moving yellow frontier and a replay
-  button, matching the real engine's behavior (flood, then trace) as
-  closely as a hand port reasonably can.
+- All 6 pre-existing `.scratch/*.ts` scripts re-run — zero regressions.
+- **New: `.scratch/verify-comparison-sync.ts`** — re-implements the
+  accumulator pattern (as step 7's pacing test did) and drives *two*
+  different real algorithms (Dijkstra and A*, on a real generated 25×25
+  maze) with the identical synthetic frame-timestamp sequence. Confirmed:
+  (1) frame-for-frame, both runs consume the exact same cumulative step
+  count as each other for as long as both are still going — direct proof
+  of the "same clock" claim above, not just a plausibility argument; (2)
+  A* reliably finishes at an earlier simulated frame than Dijkstra (e.g.
+  76 vs. 98 in one run) — the actual visible payoff of comparison mode,
+  confirmed as a real, reproducible property rather than asserted.
+  (First draft of this test had a wrong expected-value formula — fixed by
+  comparing the two runs directly to each other, which is both simpler
+  and the more direct statement of the property that actually matters.)
 
 ### Not started yet
-Steps 8-12 (see build order above).
+Steps 9-12 (see build order above).
 
 ---
 
 ## Decisions the user should know about
-*(1-9 unchanged from before, see git log on earlier commits.)*
+*(1-12 unchanged from before, see git log on earlier commits.)*
 
-10. **"Instant" speed still means "no animation," not "animate very
-    fast."** At `SPEED_STEP_DELAY_MS.instant === 0`, both engines
-    short-circuit to a synchronous full drain rather than scheduling
-    animation frames with a zero-length budget — the latter would still
-    take a visible frame or two to resolve, where "instant" should mean
-    the result is just there immediately.
-11. **No explicit "Stop" button for an in-progress animation.** PRD's FRs
-    don't call for one, grids are small enough (15-40 per side) that even
-    "slow" runs finish well within a reasonable wait, and every control
-    (including a hypothetical stop button) is disabled during a run
-    anyway per the NFR about preventing inconsistent states — added
-    complexity without a corresponding requirement.
-12. **Removed `useGridEditor`'s `locked` state** in favor of a single
-    `isBusy` computed in `App.tsx` — see the step 7 summary above for the
-    reasoning (three independently-owned lock booleans vs. one).
+13. **`algorithmIdB` defaults to `"astar"`** (single-mode `algorithmId`
+    still defaults to `"bfs"`, unchanged) — gives an immediately-useful,
+    different-by-default pairing the first time someone checks the
+    Compare box, rather than comparing an algorithm against itself.
+14. **No shared-clock abstraction was built.** My own step-7 architecture
+    note flagged two options — reuse `useSolver` twice as-is, or build a
+    proper shared clock if that didn't stay synced in practice. Verified
+    (not just assumed) that the simple option works, so that's what
+    shipped — see the sync explanation above.
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
-- **For step 8 (comparison mode), next:** run two algorithms
-  simultaneously on identical grids, synced to one animation clock (PRD
-  §3/FR6). The natural extension: a second `useSolver()` instance (the
-  hook doesn't assume it's a singleton) sharing the *same* speed and
-  driven by the *same* `requestAnimationFrame` callback timing — needs
-  either (a) lifting the tick-scheduling one level up so one rAF loop
-  steps two generators in lockstep, or (b) two independent `useSolver`
-  instances started in the same synchronous event handler, which — given
-  they use the same `delay` and both start their first rAF request in the
-  same tick — should already stay visually synced without further work,
-  since rAF callbacks queued in the same frame fire together. Try (b)
-  first (simpler, reuses useSolver unchanged); only build the shared-clock
-  version in (a) if (b) turns out not to stay synced in practice.
-  `GridCanvas` will need a second `visited`/`path`/`current` prop set or a
-  side-by-side pair of instances — probably the latter, matching PRD's own
-  "ComparisonView (two GridCanvas instances synced to one animation
-  clock)" architecture note.
-- **For step 9 (styling pass):** re-read
-  `/mnt/skills/public/frontend-design/SKILL.md`. Still owed: the
-  collapsible in-app "How it works" panel (PRD §10).
+- **For step 9 (styling pass), next:** re-read
+  `/mnt/skills/public/frontend-design/SKILL.md` properly (brainstorm →
+  critique → commit, per the skill's own process) rather than continuing
+  with the plain-Tailwind-defaults baseline steps 5-8 deliberately stuck
+  to. Also still owed from the PRD: the collapsible in-app "How it works"
+  panel (§10) — this is the natural step to add it. Worth one more
+  Visualizer preview afterward, showing the real visual identity rather
+  than the current functional-but-generic slate/white baseline.
 - Data model split, algorithm/maze-gen generator contracts, priority
-  queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle: unchanged,
-  see step 4 commit.
+  queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle,
+  `isBusy`/no-separate-lock reasoning: unchanged, see earlier commits.

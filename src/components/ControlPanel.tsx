@@ -9,10 +9,18 @@ export interface ControlPanelProps {
   onGenerateMaze: () => void;
   isGeneratingMaze: boolean;
 
+  comparisonMode: boolean;
+  onComparisonModeChange: (enabled: boolean) => void;
+
+  /** "Algorithm" in single mode, "Algorithm A" in comparison mode. */
   algorithmId: AlgorithmId;
   onAlgorithmChange: (id: AlgorithmId) => void;
-  onVisualize: () => void;
-  isVisualizing: boolean;
+  /** Only shown/used when comparisonMode is true. */
+  algorithmIdB: AlgorithmId;
+  onAlgorithmBChange: (id: AlgorithmId) => void;
+
+  onRun: () => void;
+  isRunning: boolean;
 
   speed: AnimationSpeed;
   onSpeedChange: (speed: AnimationSpeed) => void;
@@ -41,10 +49,14 @@ export function ControlPanel({
   onMazeAlgorithmChange,
   onGenerateMaze,
   isGeneratingMaze,
+  comparisonMode,
+  onComparisonModeChange,
   algorithmId,
   onAlgorithmChange,
-  onVisualize,
-  isVisualizing,
+  algorithmIdB,
+  onAlgorithmBChange,
+  onRun,
+  isRunning,
   speed,
   onSpeedChange,
   gridSize,
@@ -53,8 +65,17 @@ export function ControlPanel({
   onClearGrid,
   disabled,
 }: ControlPanelProps) {
-  const selectedAlgo = ALGORITHMS[algorithmId];
+  const selectedAlgoA = ALGORITHMS[algorithmId];
+  const selectedAlgoB = ALGORITHMS[algorithmIdB];
   const speedIndex = ANIMATION_SPEEDS.indexOf(speed);
+
+  const runLabel = isRunning
+    ? comparisonMode
+      ? "Comparing…"
+      : "Visualizing…"
+    : comparisonMode
+      ? "Compare"
+      : "Visualize";
 
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-4">
@@ -81,9 +102,21 @@ export function ControlPanel({
       </section>
 
       <section className="flex flex-col gap-2 border-t border-slate-100 pt-4">
-        <label className={labelClasses} htmlFor="algo-select">
-          Algorithm
-        </label>
+        <div className="flex items-center justify-between">
+          <label className={labelClasses} htmlFor="algo-select">
+            {comparisonMode ? "Algorithm A" : "Algorithm"}
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={comparisonMode}
+              disabled={disabled}
+              onChange={(e) => onComparisonModeChange(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300"
+            />
+            Compare
+          </label>
+        </div>
         <select
           id="algo-select"
           value={algorithmId}
@@ -97,14 +130,37 @@ export function ControlPanel({
             </option>
           ))}
         </select>
-        <p className="text-xs text-slate-500">{selectedAlgo.shortDescription}</p>
+        <p className="text-xs text-slate-500">{selectedAlgoA.shortDescription}</p>
+
+        {comparisonMode && (
+          <>
+            <label className={labelClasses} htmlFor="algo-select-b">
+              Algorithm B
+            </label>
+            <select
+              id="algo-select-b"
+              value={algorithmIdB}
+              disabled={disabled}
+              onChange={(e) => onAlgorithmBChange(e.target.value as AlgorithmId)}
+              className={selectClasses}
+            >
+              {Object.values(ALGORITHMS).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">{selectedAlgoB.shortDescription}</p>
+          </>
+        )}
+
         <button
           type="button"
-          onClick={onVisualize}
+          onClick={onRun}
           disabled={disabled}
           className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
         >
-          {isVisualizing ? "Visualizing…" : "Visualize"}
+          {runLabel}
         </button>
       </section>
 
