@@ -21,6 +21,11 @@ export interface GridCanvasProps {
   /** The single "currently checking" cell (yellow highlight, PRD §10) —
    * highest priority overlay after start/end's own marker. */
   current?: Position | null;
+  /** Fires on every mouse move over the grid (and with null on mouse
+   * leave), regardless of `disabled` — this is purely informational (the
+   * coordinate readout), not an editing action, so it stays live even
+   * while editing itself is locked during a run. */
+  onCellHover?: (pos: Position | null) => void;
   onCellMouseDown?: (pos: Position, modifierHeld: boolean) => void;
   onCellMouseEnter?: (pos: Position) => void;
 }
@@ -43,6 +48,7 @@ export function GridCanvas({
   visited,
   path,
   current,
+  onCellHover,
   onCellMouseDown,
   onCellMouseEnter,
 }: GridCanvasProps) {
@@ -110,13 +116,17 @@ export function GridCanvas({
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (disabled) return;
     const pos = cellFromEvent(e);
-    if (!pos) return;
+    onCellHover?.(pos);
+    if (disabled || !pos) return;
     const last = lastCellRef.current;
     if (last && last.row === pos.row && last.col === pos.col) return;
     lastCellRef.current = pos;
     onCellMouseEnter?.(pos);
+  }
+
+  function handleMouseLeave() {
+    onCellHover?.(null);
   }
 
   return (
@@ -127,8 +137,9 @@ export function GridCanvas({
         aria-label={`Pathfinding grid, ${rows} by ${cols} cells`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         onDragStart={(e) => e.preventDefault()}
-        className={`mx-auto block rounded-lg border border-slate-300 shadow-sm select-none ${
+        className={`mx-auto block rounded-md border border-console-border/50 shadow-[0_1px_2px_rgba(0,0,0,0.4)] select-none ${
           disabled ? "cursor-not-allowed opacity-90" : "cursor-pointer"
         }`}
         style={{ touchAction: "none" }}

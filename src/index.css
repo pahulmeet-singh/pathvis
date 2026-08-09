@@ -1,10 +1,29 @@
 @import "tailwindcss";
 
+/**
+ * Design tokens — "Drafting Console" direction (step 9 styling pass).
+ * See PROGRESS.md for the brainstorm/critique this came out of. Summary:
+ * a dark blueprint-navy console (genuinely blue, not near-black) housing
+ * a bright, legible grid instrument — like an oscilloscope bezel around a
+ * lit display. Tailwind v4's color namespace turns each of these into
+ * real utilities (bg-console, text-signal-cyan, etc.), used throughout
+ * the components instead of Tailwind's generic default palette.
+ */
 @theme {
-  /* Design tokens get finalized in the styling pass (step 9). Core
-     neutrals only for now, so early UI steps aren't unstyled while we build. */
+  --color-console: #0d1b2e;
+  --color-console-panel: #15243d;
+  --color-console-panel-hover: #1b2c48;
+  --color-console-border: #2a3d5c;
+  --color-console-ink: #e8eef7;
+  --color-console-ink-muted: #8a9bb8;
+
+  --color-signal-cyan: #4cc9f0;
+  --color-signal-amber: #f2a65a;
+  --color-signal-green: #3fae6a;
+  --color-signal-red: #e4574a;
+
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -22,4 +41,18 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Quality-floor accessibility: respect reduced-motion for decorative
+   transitions (button/panel hovers etc.). Does NOT affect the grid's own
+   visited/path reveal animation — that's paced in JS by useSolver's
+   requestAnimationFrame loop, not CSS, so it's unaffected by this rule
+   and stays intact as the core functional content it is, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

@@ -1,13 +1,20 @@
 import type { CellType } from "@/lib/grid/types";
 
 /**
- * Cell fill colors used directly as canvas `fillStyle` values. These live
- * here (not as CSS custom properties) because the 2D canvas context can't
- * resolve `var(--...)` — it needs literal color strings. This is a
- * functional working baseline for steps 5-8; the full visual identity
- * (exact hues, whether these get pulled from a shared design-token file)
- * is a deliberate step 9 decision, not something to lock in as a side
- * effect of getting the grid to render.
+ * Cell fill colors used directly as canvas `fillStyle` values — literal
+ * hex, not CSS variables, since the 2D canvas context can't resolve
+ * `var(--...)`. Tied to the console design system (step 9) without
+ * breaking the grid's own usability convention: light/passable, dark/wall
+ * stays intact (the most legible, most universally-recognized convention
+ * for this kind of tool), while `wall` specifically uses a navy pulled
+ * from the console panel family — walls read as "carved from the same
+ * material as the console itself."
+ *
+ * Two saturation tiers by design: "wash" colors (visited, path) are pale
+ * and only ever fill a cell's background; "marker" colors (start, end,
+ * frontier) are the more saturated, higher-attention ones, reserved for
+ * the single most current/important cell. Keeps a glance-able hierarchy
+ * even on a full, busy grid.
  */
 export const CELL_COLORS: Record<CellType, string> & {
   gridLine: string;
@@ -16,12 +23,12 @@ export const CELL_COLORS: Record<CellType, string> & {
   frontier: string;
 } = {
   empty: "#f8fafc",
-  wall: "#1e293b",
-  mud: "#92400e",
-  start: "#16a34a",
-  end: "#e11d48",
+  wall: "#1b2a41",
+  mud: "#b5651d",
+  start: "#2fa84f",
+  end: "#dc3545",
   gridLine: "#e2e8f0",
-  visited: "#bfdbfe",
-  path: "#86efac",
-  frontier: "#facc15",
+  visited: "#bfe3f5",
+  path: "#b7efc5",
+  frontier: "#f2c94c",
 };

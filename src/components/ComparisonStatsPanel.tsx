@@ -20,9 +20,9 @@ export function ComparisonStatsPanel({ algorithmIdA, displayA, algorithmIdB, dis
 
   if (!displayA && !displayB) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">Stats</h2>
-        <p className="text-sm text-slate-400">
+      <div className="rounded-xl border border-console-border bg-console-panel p-4">
+        <h2 className="mb-1 text-sm font-semibold text-console-ink">Stats</h2>
+        <p className="text-sm text-console-ink-muted">
           Click Compare to run both algorithms and see nodes visited, path length, and timing side by side.
         </p>
       </div>
@@ -49,23 +49,23 @@ export function ComparisonStatsPanel({ algorithmIdA, displayA, algorithmIdB, dis
   ];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">Stats</h2>
+    <div className="rounded-xl border border-console-border bg-console-panel p-4">
+      <h2 className="mb-3 text-sm font-semibold text-console-ink">Stats</h2>
       <div className="mb-2 grid grid-cols-[1fr_auto_auto] gap-x-3">
         <span />
-        <span className="text-right text-xs font-semibold text-slate-400" title={algoA.label}>
+        <span className="text-right text-xs font-semibold text-console-ink-muted" title={algoA.label}>
           A
         </span>
-        <span className="text-right text-xs font-semibold text-slate-400" title={algoB.label}>
+        <span className="text-right text-xs font-semibold text-console-ink-muted" title={algoB.label}>
           B
         </span>
       </div>
       <dl className="flex flex-col gap-2 text-sm">
         {rows.map((row) => (
           <div key={row.label} className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3">
-            <dt className="text-xs text-slate-400">{row.label}</dt>
-            <dd className="text-right font-medium text-slate-800">{row.a}</dd>
-            <dd className="text-right font-medium text-slate-800">{row.b}</dd>
+            <dt className="text-xs text-console-ink-muted">{row.label}</dt>
+            <dd className="text-right font-mono font-medium tabular-nums text-console-ink">{row.a}</dd>
+            <dd className="text-right font-mono font-medium tabular-nums text-console-ink">{row.b}</dd>
           </div>
         ))}
       </dl>

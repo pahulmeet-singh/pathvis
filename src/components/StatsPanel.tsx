@@ -11,9 +11,9 @@ export function StatsPanel({ algorithmId, display }: StatsPanelProps) {
 
   if (!display) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">Stats</h2>
-        <p className="text-sm text-slate-400">
+      <div className="rounded-xl border border-console-border bg-console-panel p-4">
+        <h2 className="mb-1 text-sm font-semibold text-console-ink">Stats</h2>
+        <p className="text-sm text-console-ink-muted">
           Run an algorithm to see nodes visited, path length, and timing here.
         </p>
       </div>
@@ -23,8 +23,8 @@ export function StatsPanel({ algorithmId, display }: StatsPanelProps) {
   const { stats } = display;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">Stats — {algo.label}</h2>
+    <div className="rounded-xl border border-console-border bg-console-panel p-4">
+      <h2 className="mb-3 text-sm font-semibold text-console-ink">Stats — {algo.label}</h2>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <StatRow label="Nodes visited" value={stats.visitedCount.toLocaleString()} />
         <StatRow
@@ -41,8 +41,8 @@ export function StatsPanel({ algorithmId, display }: StatsPanelProps) {
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className="font-medium text-slate-800">{value}</dd>
+      <dt className="text-xs text-console-ink-muted">{label}</dt>
+      <dd className="font-mono font-medium tabular-nums text-console-ink">{value}</dd>
     </div>
   );
 }

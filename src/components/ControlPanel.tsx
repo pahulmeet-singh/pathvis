@@ -36,13 +36,14 @@ export interface ControlPanelProps {
   disabled: boolean;
 }
 
-const selectClasses =
-  "rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
-const primaryButtonClasses =
-  "rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300";
-const secondaryButtonClasses =
-  "flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300";
-const labelClasses = "text-xs font-semibold uppercase tracking-wide text-slate-400";
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-console-panel";
+const selectClasses = `rounded-md border border-console-border bg-console px-2 py-1.5 text-sm text-console-ink disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`;
+const amberButtonClasses = `rounded-md bg-signal-amber px-3 py-1.5 text-sm font-medium text-console hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+const cyanButtonClasses = `rounded-md bg-signal-cyan px-3 py-1.5 text-sm font-medium text-console hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+const outlineButtonClasses = `flex-1 rounded-md border border-console-border px-3 py-1.5 text-sm font-medium text-console-ink-muted hover:bg-console-panel-hover hover:text-console-ink disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+const labelClasses = "text-xs font-semibold uppercase tracking-wide text-console-ink-muted";
+const checkboxClasses = `h-3.5 w-3.5 rounded border-console-border accent-signal-cyan ${focusRing}`;
 
 export function ControlPanel({
   mazeAlgorithmId,
@@ -78,7 +79,7 @@ export function ControlPanel({
       : "Visualize";
 
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-4">
+    <div className="flex flex-col gap-5 rounded-xl border border-console-border bg-console-panel p-4">
       <section className="flex flex-col gap-2">
         <label className={labelClasses} htmlFor="maze-select">
           Maze
@@ -96,23 +97,23 @@ export function ControlPanel({
             </option>
           ))}
         </select>
-        <button type="button" onClick={onGenerateMaze} disabled={disabled} className={primaryButtonClasses}>
+        <button type="button" onClick={onGenerateMaze} disabled={disabled} className={amberButtonClasses}>
           {isGeneratingMaze ? "Generating…" : "Generate maze"}
         </button>
       </section>
 
-      <section className="flex flex-col gap-2 border-t border-slate-100 pt-4">
+      <section className="flex flex-col gap-2 border-t border-console-border pt-4">
         <div className="flex items-center justify-between">
           <label className={labelClasses} htmlFor="algo-select">
             {comparisonMode ? "Algorithm A" : "Algorithm"}
           </label>
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          <label className="flex items-center gap-1.5 text-xs text-console-ink-muted">
             <input
               type="checkbox"
               checked={comparisonMode}
               disabled={disabled}
               onChange={(e) => onComparisonModeChange(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-slate-300"
+              className={checkboxClasses}
             />
             Compare
           </label>
@@ -130,7 +131,7 @@ export function ControlPanel({
             </option>
           ))}
         </select>
-        <p className="text-xs text-slate-500">{selectedAlgoA.shortDescription}</p>
+        <p className="text-xs text-console-ink-muted">{selectedAlgoA.shortDescription}</p>
 
         {comparisonMode && (
           <>
@@ -150,24 +151,19 @@ export function ControlPanel({
                 </option>
               ))}
             </select>
-            <p className="text-xs text-slate-500">{selectedAlgoB.shortDescription}</p>
+            <p className="text-xs text-console-ink-muted">{selectedAlgoB.shortDescription}</p>
           </>
         )}
 
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={disabled}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
-        >
+        <button type="button" onClick={onRun} disabled={disabled} className={cyanButtonClasses}>
           {runLabel}
         </button>
       </section>
 
-      <section className="flex flex-col gap-2 border-t border-slate-100 pt-4">
+      <section className="flex flex-col gap-2 border-t border-console-border pt-4">
         <label className="flex items-center justify-between" htmlFor="speed-slider">
           <span className={labelClasses}>Animation speed</span>
-          <span className="text-xs text-slate-500">{SPEED_LABELS[speed]}</span>
+          <span className="font-mono text-xs text-console-ink-muted">{SPEED_LABELS[speed]}</span>
         </label>
         <input
           id="speed-slider"
@@ -178,13 +174,14 @@ export function ControlPanel({
           value={speedIndex}
           disabled={disabled}
           onChange={(e) => onSpeedChange(ANIMATION_SPEEDS[Number(e.target.value)])}
+          className={`accent-signal-cyan ${focusRing}`}
         />
       </section>
 
-      <section className="flex flex-col gap-2 border-t border-slate-100 pt-4">
+      <section className="flex flex-col gap-2 border-t border-console-border pt-4">
         <label className="flex items-center justify-between" htmlFor="size-slider">
           <span className={labelClasses}>Grid size</span>
-          <span className="text-xs text-slate-500">
+          <span className="font-mono text-xs tabular-nums text-console-ink-muted">
             {gridSize}×{gridSize}
           </span>
         </label>
@@ -197,14 +194,15 @@ export function ControlPanel({
           value={gridSize}
           disabled={disabled}
           onChange={(e) => onGridSizeChange(Number(e.target.value))}
+          className={`accent-signal-cyan ${focusRing}`}
         />
       </section>
 
-      <section className="flex gap-2 border-t border-slate-100 pt-4">
-        <button type="button" onClick={onResetRun} disabled={disabled} className={secondaryButtonClasses}>
+      <section className="flex gap-2 border-t border-console-border pt-4">
+        <button type="button" onClick={onResetRun} disabled={disabled} className={outlineButtonClasses}>
           Reset
         </button>
-        <button type="button" onClick={onClearGrid} disabled={disabled} className={secondaryButtonClasses}>
+        <button type="button" onClick={onClearGrid} disabled={disabled} className={outlineButtonClasses}>
           Clear grid
         </button>
       </section>

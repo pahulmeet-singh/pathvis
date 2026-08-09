@@ -24,11 +24,11 @@ const SHAPE_CLASS: Record<LegendItem["shape"], string> = {
 
 export function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-console-ink-muted">
       {LEGEND_ITEMS.map((item) => (
         <div key={item.label} className="flex items-center gap-1.5">
           <span
-            className={`inline-block h-3 w-3 border border-slate-300 ${SHAPE_CLASS[item.shape]}`}
+            className={`inline-block h-3 w-3 border border-console-border ${SHAPE_CLASS[item.shape]}`}
             style={{ backgroundColor: item.color }}
           />
           <span>{item.label}</span>

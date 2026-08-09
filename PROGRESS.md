@@ -5,7 +5,7 @@
 > the plan back to the user — just keep building. This file is a single
 > current-status snapshot, not a running log — replace whole sections in
 > place when a step completes, don't append a new "Status" block on top of
-> an one.
+> an old one.
 
 Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 1. Project scaffold + folder structure — ✅ done
@@ -16,113 +16,144 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 6. Control panel + stats panel — ✅ done
 7. Animation engine tying algorithms to the UI — ✅ done
 8. Comparison mode — ✅ done
-9. Styling pass — ⬅ **next**
-10. Tests
+9. Styling pass — ✅ done
+10. Tests — ⬅ **next**
 11. README + viva cheat sheet + demo script
 12. Final build check
 
 **Note on the user's situation:** the person building this cannot run
 `npm run dev` themselves at this stage, and I have no browser in this
-sandbox. Three Visualizer-tool previews so far (static palette, live click
-demo, timed animated demo) covered the visual language before this step.
-Comparison mode itself didn't get a fourth preview — deliberately: it's
-"the same single-run behavior, twice, side by side," not a new visual
-language, so a preview would add little. **Styling (step 9, next) is
-where a preview is actually worth doing again** — a real visual identity
-change is exactly the kind of thing that's hard to picture from text.
+sandbox. Four Visualizer-tool previews so far: static palette, live click
+demo, timed animated demo, and (this step) the full console redesign —
+dark header, bezeled grid instrument with corner brackets + coordinate
+readout, recolored buttons. That was the last "hard to picture from text"
+step; steps 10-12 are tests/docs/final-check, which don't need a preview.
 
 ---
 
 ## What's built so far
 
-### Steps 1-7
-Unchanged this step — toolchain, grid/maze/algorithm libs, canvas +
-interactions, control/stats panels, the rAF-paced animation engine. All
-re-verified clean this step too (see below). See git log for per-step
-detail.
+### Steps 1-8
+Unchanged this step functionally — every wire from comparison mode is
+intact, only classNames and two new visual components changed. Re-verified
+clean (all 7 `.scratch/*.ts` scripts, `tsc -b`, `npm run build`,
+`npm run lint`). See git log for per-step detail.
 
-### Step 8: Comparison mode
-- **`ComparisonView.tsx`** (new): two `GridCanvas` instances reading the
-  *same* shared `grid` (PRD §3: "identical grids") — editing either one
-  edits the one underlying grid both are displaying, there's no separate
-  "grid A"/"grid B" to keep in sync. Each canvas gets its own
-  visited/path/current overlay from its own `useSolver` instance.
-- **`ComparisonStatsPanel.tsx`** (new): the actual payoff of the feature —
-  nodes visited / path length / time complexity / execution time for both
-  algorithms, side by side, so "A* visits fewer nodes than Dijkstra" is a
-  number you can read, not a claim you take on faith.
-- **`ControlPanel.tsx`**: added a "Compare" checkbox that switches
-  "Algorithm" → "Algorithm A" and reveals an "Algorithm B" picker; the
-  run button becomes "Compare" (label + behavior) instead of "Visualize."
-- **`App.tsx`**: a *second*, fully independent `useSolver()` instance
-  (`solverB`) — the hook was never written assuming it's a singleton, so
-  this needed zero changes to `useSolver.ts` itself. `handleRun()` calls
-  `solverA.solve(...)` and, only in comparison mode, `solverB.solve(...)`
-  — both in the same synchronous event handler, both given the same
-  `speed`. Layout swaps `GridCanvas`+`StatsPanel` for
-  `ComparisonView`+`ComparisonStatsPanel` based on `comparisonMode`,
-  reusing the same outer page structure.
+### Step 9: Styling pass ("Drafting Console")
+Followed the frontend-design skill's actual process — brainstorm a token
+system, critique it against the three flagged generic-AI-default looks,
+then build. Full reasoning is in the step 9 commit message and this
+conversation; summary of what shipped:
 
-### How the sync actually works (important to understand, not just trust)
-Nothing new was built to "synchronize" the two runs — no shared clock
-object, no coordinator. The sync is a *consequence* of how
-`requestAnimationFrame` works: callbacks requested within the same
-synchronous task share that upcoming frame's timestamp. Since both
-`solve()` calls request their first frame in the same handler, and each
-one's `tick` re-requests the next frame at the end of its own processing,
-both loops keep landing in the same frames with the same `now` value on
-every subsequent tick too — which means their accumulator math (delay,
-elapsed time) stays identical between them for as long as both are still
-running. This was a real, checkable prediction, not just a hope — see
-verification below.
+- **Direction**: a dark blueprint-navy console (`#0d1b2e`, genuinely blue —
+  not near-black) housing a bright, legible grid instrument, like an
+  oscilloscope bezel around a lit display. Chose this over a
+  "topographic/parchment" alternative (risked reading too close to the
+  warm-cream-plus-serif default) and a "pure terminal" alternative (risked
+  reading too close to the near-black-plus-single-neon-accent default).
+- **Color**: console `#0d1b2e` / panel `#15243d` / border `#2a3d5c` / ink
+  `#e8eef7` / ink-muted `#8a9bb8`, plus semantic signal colors (cyan
+  `#4cc9f0` primary, amber `#f2a65a` secondary, green/red for
+  confirm/danger). Grid palette (`canvasPalette.ts`) kept its light/dark
+  legibility convention (light=passable, dark=wall — the standard,
+  legible one) rather than inverting for theme purity; only `wall` was
+  re-hexed to a navy pulled from the console family, so walls read as
+  "carved from the same material as the console."
+- **Type**: Space Grotesk (display) + IBM Plex Sans (body) + IBM Plex Mono
+  (data/coordinates/complexity notation) — loaded via Google Fonts links
+  in `index.html`. Chose Plex over generic Inter specifically because Plex
+  was designed for engineering/technical contexts, which is the register
+  this app lives in.
+- **Signature element**: `GridInstrument.tsx` (new) — corner-bracket
+  registration marks (technical-drawing convention) plus a **live
+  coordinate readout** on hover (row/col, monospace, cyan) — genuinely
+  useful for a grid tool, not pure decoration, which is what makes it a
+  legitimate signature rather than a sticker. Reused by both single-mode
+  and `ComparisonView` (which now wraps `GridInstrument` instead of raw
+  `GridCanvas`, picking up the label prop it used to render itself).
+- **`HowItWorks.tsx`** (new): the PRD §10 "How it works" collapsible panel
+  that had been owed since step 6. Native `<details>`/`<summary>` (free
+  keyboard accessibility, no custom disclosure JS). Content pulled
+  directly from `ALGORITHMS`/`MAZE_ALGORITHMS` via a new `howItWorks`
+  field on each registry entry (2-3 sentences per algorithm) — same
+  single-source-of-truth principle as the rest of the registries, and
+  this content is also what step 11's viva sheet will draw from.
+- All other components (`ControlPanel`, `StatsPanel`, `ComparisonStatsPanel`,
+  `Legend`, `App`) restyled to the console tokens; stat numbers and
+  complexity notation now render in `font-mono`. Added visible
+  `focus-visible` rings (cyan) on every interactive control, and a
+  `prefers-reduced-motion` rule for decorative transitions — both part of
+  the skill's stated "quality floor," not optional polish.
+
+### A real bug caught during this step
+The first `npm run build` after the CSS token rewrite produced a CSS
+parser warning. Cause: a doc comment read
+`...instead of generic slate-*/emerald-* Tailwind defaults.` — the
+substring `*/` inside `slate-*/emerald-*` is the CSS comment terminator,
+so the comment closed early and `emerald-* Tailwind defaults. */ @theme {`
+got fed to the CSS parser as real (broken) CSS. Fixed by rewording the
+comment; then grepped the whole source tree for the same pattern
+(`-*/`) to confirm it was the only instance. Worth recording because it's
+exactly the kind of small, real mistake that's easy to make when writing
+comments about wildcard-style utility names, and easy to miss without
+actually running the build.
 
 ### Verification status
-- `tsc -b`, `npm run build`, `npm run lint`: clean.
-- All 6 pre-existing `.scratch/*.ts` scripts re-run — zero regressions.
-- **New: `.scratch/verify-comparison-sync.ts`** — re-implements the
-  accumulator pattern (as step 7's pacing test did) and drives *two*
-  different real algorithms (Dijkstra and A*, on a real generated 25×25
-  maze) with the identical synthetic frame-timestamp sequence. Confirmed:
-  (1) frame-for-frame, both runs consume the exact same cumulative step
-  count as each other for as long as both are still going — direct proof
-  of the "same clock" claim above, not just a plausibility argument; (2)
-  A* reliably finishes at an earlier simulated frame than Dijkstra (e.g.
-  76 vs. 98 in one run) — the actual visible payoff of comparison mode,
-  confirmed as a real, reproducible property rather than asserted.
-  (First draft of this test had a wrong expected-value formula — fixed by
-  comparing the two runs directly to each other, which is both simpler
-  and the more direct statement of the property that actually matters.)
+- `tsc -b`, `npm run build`, `npm run lint`: clean (after the fix above).
+- All 7 pre-existing `.scratch/*.ts` scripts re-run — zero regressions
+  (nothing in this step touched algorithm/grid/animation logic, only
+  presentation, so this was a confirmation pass, not new-property
+  verification).
+- No new scratch script this step — there's no new *logic* to verify,
+  only visual presentation, which (as in steps 5-8) I can't see directly
+  in this sandbox. Relied on tsc/build/lint plus a Visualizer preview
+  (hand-ported, same palette/fonts) to sanity-check the direction before
+  committing to it across every component.
 
 ### Not started yet
-Steps 9-12 (see build order above).
+Steps 10-12 (see build order above).
 
 ---
 
 ## Decisions the user should know about
-*(1-12 unchanged from before, see git log on earlier commits.)*
+*(1-14 unchanged from before, see git log on earlier commits.)*
 
-13. **`algorithmIdB` defaults to `"astar"`** (single-mode `algorithmId`
-    still defaults to `"bfs"`, unchanged) — gives an immediately-useful,
-    different-by-default pairing the first time someone checks the
-    Compare box, rather than comparing an algorithm against itself.
-14. **No shared-clock abstraction was built.** My own step-7 architecture
-    note flagged two options — reuse `useSolver` twice as-is, or build a
-    proper shared clock if that didn't stay synced in practice. Verified
-    (not just assumed) that the simple option works, so that's what
-    shipped — see the sync explanation above.
+15. **Grid palette kept its light-background convention** rather than
+    inverting to match the dark console theme — usability (light=open,
+    dark=wall is the most legible, most recognized convention for this
+    genre of tool) took priority over total theme purity. The console
+    chrome around the grid carries the visual identity instead.
+16. **`howItWorks` content was written fresh for this panel**, not reused
+    from `shortDescription` — the dropdown needs a one-line summary, the
+    explainer panel needs 2-3 sentences with actual substance (the "why,"
+    not just the "what"). Both live on the same registry entries as
+    distinctly-named fields rather than trying to make one string serve
+    both jobs.
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
-- **For step 9 (styling pass), next:** re-read
-  `/mnt/skills/public/frontend-design/SKILL.md` properly (brainstorm →
-  critique → commit, per the skill's own process) rather than continuing
-  with the plain-Tailwind-defaults baseline steps 5-8 deliberately stuck
-  to. Also still owed from the PRD: the collapsible in-app "How it works"
-  panel (§10) — this is the natural step to add it. Worth one more
-  Visualizer preview afterward, showing the real visual identity rather
-  than the current functional-but-generic slate/white baseline.
+- **For step 10 (tests), next:** turn the properties already verified via
+  `.scratch/*.ts` scripts into the real Vitest suite in top-level
+  `/tests`, matching PRD §11 exactly: maze connectivity, BFS/Dijkstra
+  path-length agreement, A* ≤ Dijkstra visited count, no-path handling.
+  The scratch scripts are close to test-shaped already (they use the same
+  `check()`/assert pattern) — this is mostly porting `console.assert` +
+  manual `check()` calls to real `expect()` calls, not devising new test
+  cases from scratch. Also worth adding: the grid-editing and
+  animation-pacing properties already verified, since they're just as
+  real and just as easy to keep as regression tests. Decide whether
+  `.scratch/` gets deleted once `/tests` supersedes it, or kept as
+  documented "how I verified this during development" — leaning toward
+  deleting it, since keeping two overlapping-but-not-identical test-like
+  directories around is more confusing than helpful once the real suite
+  exists.
+- **For step 11:** README + viva cheat sheet + demo script. The viva
+  sheet's algorithm content should pull from `ALGORITHMS`/`MAZE_ALGORITHMS`'
+  `howItWorks` fields (step 9) rather than being written separately —
+  keeps it from drifting out of sync with what the app itself says.
 - Data model split, algorithm/maze-gen generator contracts, priority
-  queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle,
-  `isBusy`/no-separate-lock reasoning: unchanged, see earlier commits.
+  queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle, animation
+  accumulator pattern, `isBusy`/no-separate-lock reasoning: unchanged,
+  see earlier commits.
