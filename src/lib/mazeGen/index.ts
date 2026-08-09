@@ -2,7 +2,7 @@ import type { Grid, Position } from "../grid/types";
 import { randomizedDFS } from "./randomizedDFS";
 import { randomizedPrims } from "./randomizedPrims";
 
-export { findNearestEmpty, getRoomNeighbors, placeStartAndEnd, wallBetween } from "./mazeUtils";
+export { createWallGrid, findNearestEmpty, getRoomNeighbors, placeStartAndEnd, wallBetween } from "./mazeUtils";
 export { randomizedDFS } from "./randomizedDFS";
 export { randomizedPrims } from "./randomizedPrims";
 export { generateMazeInstantly } from "./generateInstantly";

@@ -10,6 +10,7 @@ const LEGEND_ITEMS: LegendItem[] = [
   { label: "Wall", color: CELL_COLORS.wall, shape: "square" },
   { label: "Mud (weighted)", color: CELL_COLORS.mud, shape: "square" },
   { label: "Visited", color: CELL_COLORS.visited, shape: "square" },
+  { label: "Frontier", color: CELL_COLORS.frontier, shape: "square" },
   { label: "Path", color: CELL_COLORS.path, shape: "square" },
   { label: "Start", color: CELL_COLORS.start, shape: "circle" },
   { label: "End", color: CELL_COLORS.end, shape: "diamond" },

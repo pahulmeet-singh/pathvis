@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGridEditor, MIN_GRID_SIZE } from "@/hooks/useGridEditor";
 import { useSolver } from "@/hooks/useSolver";
+import { useMazeGenerator } from "@/hooks/useMazeGenerator";
 import { GridCanvas } from "@/components/GridCanvas";
 import { ControlPanel } from "@/components/ControlPanel";
 import { StatsPanel } from "@/components/StatsPanel";
@@ -9,32 +10,33 @@ import { getStart, getEnd, gridDimensions } from "@/lib/grid/gridUtils";
 import type { Position } from "@/lib/grid/types";
 import type { AlgorithmId } from "@/lib/algorithms";
 import type { MazeAlgorithmId } from "@/lib/mazeGen";
-import { MAZE_ALGORITHMS, generateMazeInstantly } from "@/lib/mazeGen";
+import type { AnimationSpeed } from "@/lib/animationSpeed";
 
 /**
- * App.tsx — top-level shell, now wiring grid + controls + stats together
- * (step 6). "Visualize" and "Generate maze" are real and fully functional
- * right now — they compute genuine results using the real algorithms from
- * steps 3-4 — but reveal the result instantly rather than animating it
- * step-by-step. That animated reveal is step 7's job to ADD on top of this
- * exact data flow, not something missing that this step faked.
+ * App.tsx — top-level shell. Step 7 replaces the instant reveal from step
+ * 6 with real animation: both "Visualize" and "Generate maze" now run
+ * through requestAnimationFrame-paced engines (useSolver, useMazeGenerator)
+ * instead of draining synchronously, and the grid locks against editing
+ * for the duration of either.
  */
 function App() {
-  const { grid, setGrid, resize, locked, handleCellMouseDown, handleCellMouseEnter } = useGridEditor();
-  const { display, solve, reset: resetSolve } = useSolver();
+  const { grid, setGrid, resize, handleCellMouseDown, handleCellMouseEnter } = useGridEditor();
+  const { display, isRunning, solve, reset: resetSolve } = useSolver();
+  const { isGenerating, generate } = useMazeGenerator(setGrid);
   const [algorithmId, setAlgorithmId] = useState<AlgorithmId>("bfs");
   const [mazeAlgorithmId, setMazeAlgorithmId] = useState<MazeAlgorithmId>("randomized-dfs");
+  const [speed, setSpeed] = useState<AnimationSpeed>("fast");
 
   const { rows: gridSize } = gridDimensions(grid);
+  const isBusy = isRunning || isGenerating;
 
   function handleGenerateMaze() {
-    const newGrid = generateMazeInstantly(MAZE_ALGORITHMS[mazeAlgorithmId], gridSize, gridSize);
-    setGrid(newGrid);
+    generate(mazeAlgorithmId, gridSize, gridSize, speed);
     resetSolve();
   }
 
   function handleVisualize() {
-    solve(algorithmId, grid, getStart(grid), getEnd(grid));
+    solve(algorithmId, grid, getStart(grid), getEnd(grid), speed);
   }
 
   function handleAlgorithmChange(id: AlgorithmId) {
@@ -53,7 +55,10 @@ function App() {
   }
 
   // Any manual grid edit invalidates a displayed result — an old path
-  // might now cross a wall that didn't exist when it was computed.
+  // might now cross a wall that didn't exist when it was computed. Only
+  // reachable when !isBusy anyway, since GridCanvas won't fire these while
+  // disabled, but resetSolve() is a harmless no-op if there's nothing to
+  // clear.
   function handleGridMouseDown(pos: Position, modifierHeld: boolean) {
     handleCellMouseDown(pos, modifierHeld);
     resetSolve();
@@ -82,9 +87,10 @@ function App() {
             </p>
             <GridCanvas
               grid={grid}
-              disabled={locked}
+              disabled={isBusy}
               visited={display?.visited}
               path={display?.path}
+              current={display?.current}
               onCellMouseDown={handleGridMouseDown}
               onCellMouseEnter={handleGridMouseEnter}
             />
@@ -96,13 +102,18 @@ function App() {
               mazeAlgorithmId={mazeAlgorithmId}
               onMazeAlgorithmChange={setMazeAlgorithmId}
               onGenerateMaze={handleGenerateMaze}
+              isGeneratingMaze={isGenerating}
               algorithmId={algorithmId}
               onAlgorithmChange={handleAlgorithmChange}
               onVisualize={handleVisualize}
+              isVisualizing={isRunning}
+              speed={speed}
+              onSpeedChange={setSpeed}
               gridSize={gridSize || MIN_GRID_SIZE}
               onGridSizeChange={handleGridSizeChange}
               onResetRun={resetSolve}
               onClearGrid={handleClearGrid}
+              disabled={isBusy}
             />
             <StatsPanel algorithmId={algorithmId} display={display} />
           </div>

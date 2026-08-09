@@ -12,8 +12,6 @@ export interface UseGridEditorResult {
   grid: Grid;
   setGrid: (grid: Grid) => void;
   resize: (rows: number, cols: number) => void;
-  locked: boolean;
-  setLocked: (locked: boolean) => void;
   handleCellMouseDown: (pos: Position, modifierHeld: boolean) => void;
   handleCellMouseEnter: (pos: Position) => void;
 }
@@ -21,16 +19,23 @@ export interface UseGridEditorResult {
 /**
  * Owns the editable Grid and wires DOM-level mouse events (from
  * GridCanvas) to the pure interaction rules in lib/grid/gridEditing.ts.
- * `locked` is exposed for the animation engine (step 7) to set while a
- * run is in progress, per the PRD's requirement that editing is disabled
- * mid-animation.
+ *
+ * No `locked` flag lives here (step 5/6 had one; removed in step 7). Once
+ * two separate animation engines (useSolver, useMazeGenerator) both need
+ * to be able to lock editing, having *this* hook also own an independent
+ * lock flag means keeping three booleans in sync by hand — a real way to
+ * introduce a bug where the canvas looks disabled but a handler still
+ * fires, or vice versa. Simpler and equally correct: GridCanvas already
+ * refuses to invoke these handlers at all when its own `disabled` prop is
+ * true, and App.tsx computes that prop as `isRunning || isGenerating`
+ * directly from the two engines. One source of truth, enforced at the one
+ * place these handlers can actually be triggered from.
  */
 export function useGridEditor(
   initialRows: number = DEFAULT_GRID_ROWS,
   initialCols: number = DEFAULT_GRID_COLS,
 ): UseGridEditorResult {
   const [grid, setGrid] = useState<Grid>(() => createEmptyGrid(initialRows, initialCols));
-  const [locked, setLocked] = useState(false);
   const dragModeRef = useRef<DragMode | null>(null);
 
   const resize = useCallback((rows: number, cols: number) => {
@@ -45,25 +50,21 @@ export function useGridEditor(
   // depending on it in useCallback keeps this side-effect-safe.
   const handleCellMouseDown = useCallback(
     (pos: Position, modifierHeld: boolean) => {
-      if (locked) return;
       const result = applyMouseDown(grid, pos, modifierHeld);
       dragModeRef.current = result.dragMode;
       setGrid(result.grid);
     },
-    [grid, locked],
+    [grid],
   );
 
   // applyMouseEnter IS pure, so the functional updater form is safe here
   // and means this callback never goes stale mid-drag regardless of
   // render timing.
-  const handleCellMouseEnter = useCallback(
-    (pos: Position) => {
-      const mode = dragModeRef.current;
-      if (!mode || locked) return;
-      setGrid((g) => applyMouseEnter(g, pos, mode));
-    },
-    [locked],
-  );
+  const handleCellMouseEnter = useCallback((pos: Position) => {
+    const mode = dragModeRef.current;
+    if (!mode) return;
+    setGrid((g) => applyMouseEnter(g, pos, mode));
+  }, []);
 
   useEffect(() => {
     const handleWindowMouseUp = () => {
@@ -73,5 +74,5 @@ export function useGridEditor(
     return () => window.removeEventListener("mouseup", handleWindowMouseUp);
   }, []);
 
-  return { grid, setGrid, resize, locked, setLocked, handleCellMouseDown, handleCellMouseEnter };
+  return { grid, setGrid, resize, handleCellMouseDown, handleCellMouseEnter };
 }

@@ -18,6 +18,9 @@ export interface GridCanvasProps {
   visited?: Position[];
   /** Cells to paint as the final "path" (green), drawn after/over visited. */
   path?: Position[];
+  /** The single "currently checking" cell (yellow highlight, PRD §10) —
+   * highest priority overlay after start/end's own marker. */
+  current?: Position | null;
   onCellMouseDown?: (pos: Position, modifierHeld: boolean) => void;
   onCellMouseEnter?: (pos: Position) => void;
 }
@@ -25,17 +28,21 @@ export interface GridCanvasProps {
 /**
  * Pure rendering + coordinate translation only — this component doesn't
  * know what a "wall" click *means* (see lib/grid/gridEditing.ts for that),
- * and doesn't know whether `visited`/`path` came from an instant run or a
- * timer-driven animation. It draws the grid and turns raw DOM mouse events
- * into cell positions, nothing more. Mouse-up is intentionally not handled
- * here: it's caught globally by `useGridEditor` so a drag that ends
- * outside the canvas still gets released.
+ * and doesn't know whether `visited`/`path`/`current` came from an instant
+ * run (step 6) or the requestAnimationFrame-driven engines in useSolver /
+ * useMazeGenerator (step 7). It draws whatever it's given and turns raw
+ * DOM mouse events into cell positions, nothing more — this is exactly
+ * the extensibility step 5/6's design notes were banking on, and it held:
+ * zero changes needed here beyond adding the `current` prop. Mouse-up is
+ * intentionally not handled here: it's caught globally by `useGridEditor`
+ * so a drag that ends outside the canvas still gets released.
  */
 export function GridCanvas({
   grid,
   disabled = false,
   visited,
   path,
+  current,
   onCellMouseDown,
   onCellMouseEnter,
 }: GridCanvasProps) {
@@ -81,8 +88,8 @@ export function GridCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawGrid(ctx, grid, cellSize, visited, path);
-  }, [grid, cellSize, canvasWidth, canvasHeight, visited, path]);
+    drawGrid(ctx, grid, cellSize, visited, path, current);
+  }, [grid, cellSize, canvasWidth, canvasHeight, visited, path, current]);
 
   function cellFromEvent(e: React.MouseEvent<HTMLCanvasElement>): Position | null {
     const canvas = canvasRef.current;
@@ -136,13 +143,14 @@ function drawGrid(
   cellSize: number,
   visited: Position[] | undefined,
   path: Position[] | undefined,
+  current: Position | null | undefined,
 ) {
   const { rows, cols } = gridDimensions(grid);
 
-  // Sets for O(1) membership checks. Rebuilt on every draw, which only
-  // happens once per "Visualize"/"Generate maze" click right now (step 6)
-  // — cheap even at 1600 cells. Step 7's per-frame animation loop will
-  // need to think harder about this; this component doesn't have to yet.
+  // Sets for O(1) membership checks. Rebuilt on every draw — once per
+  // animation frame during a run, once per click otherwise. Cheap even at
+  // 1600 cells and ~60 rebuilds/sec; see useSolver/useMazeGenerator for
+  // where the actual per-frame cost lives (grid/array cloning), not here.
   const pathSet = new Set(path?.map((p) => `${p.row},${p.col}`));
   const visitedSet = new Set(visited?.map((p) => `${p.row},${p.col}`));
 
@@ -155,10 +163,13 @@ function drawGrid(
 
       let fill = CELL_COLORS[cell.type];
       // Start/end always show their own dedicated color + marker, never
-      // the visited/path overlay — an anchor should never look "explored
-      // over," it should always read as an anchor.
+      // an overlay — an anchor should never look "explored over," it
+      // should always read as an anchor. Among the overlays, frontier
+      // (the live "currently checking" cell) wins over path, which wins
+      // over plain visited.
       if (cell.type !== "start" && cell.type !== "end") {
-        if (pathSet.has(key)) fill = CELL_COLORS.path;
+        if (current && current.row === r && current.col === c) fill = CELL_COLORS.frontier;
+        else if (pathSet.has(key)) fill = CELL_COLORS.path;
         else if (visitedSet.has(key)) fill = CELL_COLORS.visited;
       }
 
