@@ -17,143 +17,131 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 7. Animation engine tying algorithms to the UI — ✅ done
 8. Comparison mode — ✅ done
 9. Styling pass — ✅ done
-10. Tests — ⬅ **next**
-11. README + viva cheat sheet + demo script
+10. Tests — ✅ done
+11. README + viva cheat sheet + demo script — ⬅ **next**
 12. Final build check
 
 **Note on the user's situation:** the person building this cannot run
 `npm run dev` themselves at this stage, and I have no browser in this
-sandbox. Four Visualizer-tool previews so far: static palette, live click
-demo, timed animated demo, and (this step) the full console redesign —
-dark header, bezeled grid instrument with corner brackets + coordinate
-readout, recolored buttons. That was the last "hard to picture from text"
-step; steps 10-12 are tests/docs/final-check, which don't need a preview.
+sandbox. Four Visualizer-tool previews so far covered every "hard to
+picture from text" visual step. Step 10 was pure logic/tooling (no new
+UI), so no preview was needed. Step 11 is documentation — also no preview
+needed, just real files.
 
 ---
 
 ## What's built so far
 
-### Steps 1-8
-Unchanged this step functionally — every wire from comparison mode is
-intact, only classNames and two new visual components changed. Re-verified
-clean (all 7 `.scratch/*.ts` scripts, `tsc -b`, `npm run build`,
-`npm run lint`). See git log for per-step detail.
+### Steps 1-9
+Unchanged this step. All still verified clean. See git log for detail.
 
-### Step 9: Styling pass ("Drafting Console")
-Followed the frontend-design skill's actual process — brainstorm a token
-system, critique it against the three flagged generic-AI-default looks,
-then build. Full reasoning is in the step 9 commit message and this
-conversation; summary of what shipped:
+### Step 10: Tests
+Turned every property already checked via the (now-deleted) `.scratch/*.ts`
+scripts into a real Vitest suite in top-level `/tests`, matching PRD §11:
 
-- **Direction**: a dark blueprint-navy console (`#0d1b2e`, genuinely blue —
-  not near-black) housing a bright, legible grid instrument, like an
-  oscilloscope bezel around a lit display. Chose this over a
-  "topographic/parchment" alternative (risked reading too close to the
-  warm-cream-plus-serif default) and a "pure terminal" alternative (risked
-  reading too close to the near-black-plus-single-neon-accent default).
-- **Color**: console `#0d1b2e` / panel `#15243d` / border `#2a3d5c` / ink
-  `#e8eef7` / ink-muted `#8a9bb8`, plus semantic signal colors (cyan
-  `#4cc9f0` primary, amber `#f2a65a` secondary, green/red for
-  confirm/danger). Grid palette (`canvasPalette.ts`) kept its light/dark
-  legibility convention (light=passable, dark=wall — the standard,
-  legible one) rather than inverting for theme purity; only `wall` was
-  re-hexed to a navy pulled from the console family, so walls read as
-  "carved from the same material as the console."
-- **Type**: Space Grotesk (display) + IBM Plex Sans (body) + IBM Plex Mono
-  (data/coordinates/complexity notation) — loaded via Google Fonts links
-  in `index.html`. Chose Plex over generic Inter specifically because Plex
-  was designed for engineering/technical contexts, which is the register
-  this app lives in.
-- **Signature element**: `GridInstrument.tsx` (new) — corner-bracket
-  registration marks (technical-drawing convention) plus a **live
-  coordinate readout** on hover (row/col, monospace, cyan) — genuinely
-  useful for a grid tool, not pure decoration, which is what makes it a
-  legitimate signature rather than a sticker. Reused by both single-mode
-  and `ComparisonView` (which now wraps `GridInstrument` instead of raw
-  `GridCanvas`, picking up the label prop it used to render itself).
-- **`HowItWorks.tsx`** (new): the PRD §10 "How it works" collapsible panel
-  that had been owed since step 6. Native `<details>`/`<summary>` (free
-  keyboard accessibility, no custom disclosure JS). Content pulled
-  directly from `ALGORITHMS`/`MAZE_ALGORITHMS` via a new `howItWorks`
-  field on each registry entry (2-3 sentences per algorithm) — same
-  single-source-of-truth principle as the rest of the registries, and
-  this content is also what step 11's viva sheet will draw from.
-- All other components (`ControlPanel`, `StatsPanel`, `ComparisonStatsPanel`,
-  `Legend`, `App`) restyled to the console tokens; stat numbers and
-  complexity notation now render in `font-mono`. Added visible
-  `focus-visible` rings (cyan) on every interactive control, and a
-  `prefers-reduced-motion` rule for decorative transitions — both part of
-  the skill's stated "quality floor," not optional polish.
+- **`tests/grid.test.ts`** (17 tests) — grid creation/neighbors/immutable
+  edits, plus the pure `gridEditing.ts` interaction rules (wall
+  draw/erase, mud toggle, anchor drag + rejection cases).
+- **`tests/mazeGen.test.ts`** (10 tests) — **PRD §11 requirement #1**:
+  both maze algorithms produce fully connected mazes (flood-fill
+  reachability == total passable cells) at 4 different sizes each,
+  `placeStartAndEnd` correctness, `generateMazeInstantly` end-to-end.
+- **`tests/algorithms.test.ts`** (21 tests) — **PRD §11 requirements
+  #2-4**: BFS/Dijkstra path-length agreement (open grid + real maze), A*
+  visited-count ≤ Dijkstra's (open grid + real maze, plus path-length
+  agreement), no-path handled gracefully for all four algorithms without
+  throwing. Plus general correctness (valid contiguous paths, start==end
+  edge case), the mud/weighted-terrain behavioral difference test,
+  `reconstructPath` edge cases, and `runAlgorithmInstantly` consistency.
+- **`tests/priorityQueue.test.ts`** (4 tests) — direct heap-property tests
+  for the hand-rolled `MinPriorityQueue`, including a 200-element
+  randomized stress test checked against `Array.sort`.
+- **`tests/animationEngine.test.ts`** (4 tests) — the accumulator pacing
+  pattern (steady-frame completion, dropped-frame burst, speed
+  differentiation) and the comparison-mode frame-sync property (two
+  different real algorithms, driven by identical synthetic timestamps,
+  checked frame-for-frame against each other).
+- **`tests/MANUAL_TEST_CHECKLIST.md`** — the PRD §11 "manual test
+  checklist for UI interactions" companion piece, covering exactly what
+  the automated suite deliberately doesn't (DOM/React behavior — see
+  decision #17 below). Organized by feature area (wall drawing, mud,
+  anchors, maze gen, single-mode visualize, comparison mode, reset/clear,
+  grid size, layout/accessibility), each item a single concrete action to
+  perform in a running `npm run dev` session.
 
-### A real bug caught during this step
-The first `npm run build` after the CSS token rewrite produced a CSS
-parser warning. Cause: a doc comment read
-`...instead of generic slate-*/emerald-* Tailwind defaults.` — the
-substring `*/` inside `slate-*/emerald-*` is the CSS comment terminator,
-so the comment closed early and `emerald-* Tailwind defaults. */ @theme {`
-got fed to the CSS parser as real (broken) CSS. Fixed by rewording the
-comment; then grepped the whole source tree for the same pattern
-(`-*/`) to confirm it was the only instance. Worth recording because it's
-exactly the kind of small, real mistake that's easy to make when writing
-comments about wildcard-style utility names, and easy to miss without
-actually running the build.
+**56 tests, 5 files, all passing** — confirmed with `npm test`, not just
+type-checked. Also stress-ran the full suite **9 times in a row** given
+real randomness is involved (DFS's neighbor shuffle, the priority queue's
+randomized stress test, `Math.random()`-seeded maze generation) — zero
+flakiness across all 9 runs.
+
+### A real bug caught while writing these tests
+First `npm test` run: 55 passed, 1 failed — `generateMazeInstantly`
+"produces a fully connected maze" reported 199 reachable cells vs. 197
+expected. Root cause: my connectivity helper counted cells where
+`type === "empty"`, but `generateMazeInstantly` calls `placeStartAndEnd`,
+which turns exactly 2 carved cells into `type: "start"`/`"end"` — so
+`countByType(grid, "empty")` undercounts by exactly 2 once anchors exist
+(199 − 197 = 2, which is the tell). The earlier connectivity tests in the
+same file happened to pass anyway because they test the *raw* maze before
+`placeStartAndEnd` ever runs, so every passable cell really is type
+"empty" there. Fixed by counting all non-wall cells instead of
+specifically "empty" ones — correct for both the raw-maze and
+anchored-maze cases. This was a bug in the **test**, not the app (the app
+was already correct — the earlier scratch-script version of this same
+check had never exercised the anchored-maze path in a way that would have
+caught it).
 
 ### Verification status
-- `tsc -b`, `npm run build`, `npm run lint`: clean (after the fix above).
-- All 7 pre-existing `.scratch/*.ts` scripts re-run — zero regressions
-  (nothing in this step touched algorithm/grid/animation logic, only
-  presentation, so this was a confirmation pass, not new-property
-  verification).
-- No new scratch script this step — there's no new *logic* to verify,
-  only visual presentation, which (as in steps 5-8) I can't see directly
-  in this sandbox. Relied on tsc/build/lint plus a Visualizer preview
-  (hand-ported, same palette/fonts) to sanity-check the direction before
-  committing to it across every component.
+- `tsc -b`, `npm run build`, `npm run lint`: clean.
+- `npm test`: 56/56 passing, 5/5 files, re-run 9x with zero flakiness.
+- `.scratch/` deleted — fully superseded by `/tests`, and keeping both
+  around would just be two overlapping, not-quite-identical verification
+  layers, which is more confusing than having one real one.
 
 ### Not started yet
-Steps 10-12 (see build order above).
+Steps 11-12 (see build order above).
 
 ---
 
 ## Decisions the user should know about
-*(1-14 unchanged from before, see git log on earlier commits.)*
+*(1-16 unchanged from before, see git log on earlier commits.)*
 
-15. **Grid palette kept its light-background convention** rather than
-    inverting to match the dark console theme — usability (light=open,
-    dark=wall is the most legible, most recognized convention for this
-    genre of tool) took priority over total theme purity. The console
-    chrome around the grid carries the visual identity instead.
-16. **`howItWorks` content was written fresh for this panel**, not reused
-    from `shortDescription` — the dropdown needs a one-line summary, the
-    explainer panel needs 2-3 sentences with actual substance (the "why,"
-    not just the "what"). Both live on the same registry entries as
-    distinctly-named fields rather than trying to make one string serve
-    both jobs.
+17. **No jsdom / React Testing Library was added.** The PRD's own §11
+    scopes UI-interaction testing to a *manual* checklist, not automated
+    component tests — I followed that rather than substituting my own
+    testing-strategy preference. Every pure-logic layer (which is
+    everything that isn't literally DOM/React plumbing) is covered by
+    real Vitest tests instead.
+18. **`.scratch/` was deleted**, not archived. It was explicitly always
+    described as throwaway (see step 2's decisions) and every property it
+    checked now has a permanent home in `/tests` with more rigor
+    (`expect()` assertions with real diffs on failure, not
+    `console.assert` + manual exit codes).
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
-- **For step 10 (tests), next:** turn the properties already verified via
-  `.scratch/*.ts` scripts into the real Vitest suite in top-level
-  `/tests`, matching PRD §11 exactly: maze connectivity, BFS/Dijkstra
-  path-length agreement, A* ≤ Dijkstra visited count, no-path handling.
-  The scratch scripts are close to test-shaped already (they use the same
-  `check()`/assert pattern) — this is mostly porting `console.assert` +
-  manual `check()` calls to real `expect()` calls, not devising new test
-  cases from scratch. Also worth adding: the grid-editing and
-  animation-pacing properties already verified, since they're just as
-  real and just as easy to keep as regression tests. Decide whether
-  `.scratch/` gets deleted once `/tests` supersedes it, or kept as
-  documented "how I verified this during development" — leaning toward
-  deleting it, since keeping two overlapping-but-not-identical test-like
-  directories around is more confusing than helpful once the real suite
-  exists.
-- **For step 11:** README + viva cheat sheet + demo script. The viva
-  sheet's algorithm content should pull from `ALGORITHMS`/`MAZE_ALGORITHMS`'
-  `howItWorks` fields (step 9) rather than being written separately —
-  keeps it from drifting out of sync with what the app itself says.
+- **For step 11, next:** README.md (architecture explanation, how to run,
+  algorithms used, live link placeholder since I can't deploy on the
+  user's behalf), `docs/VIVA_CHEAT_SHEET.md` (pull directly from
+  `ALGORITHMS`/`MAZE_ALGORITHMS`'s `howItWorks` + the complexity table
+  already in `AlgorithmDef` — don't rewrite this content a third time),
+  `docs/DEMO_SCRIPT.md` (PRD §12 deliverable #5 — a rehearsed ~3-minute
+  walkthrough: generate maze → run BFS → run DFS to contrast → comparison
+  mode with Dijkstra vs A* on a weighted maze → point at stats). Worth
+  remembering from step 4's testing: **run DFS on a maze or
+  obstacle-heavy grid for the demo, not a blank open grid** — on a fully
+  open grid DFS's shuffled-but-still-fairly-direct behavior is less
+  visually dramatic than on a real maze with dead ends to backtrack out
+  of.
+- **For step 12:** final build check — run build + full test suite one
+  more time after step 11's doc-only changes (shouldn't affect either,
+  but confirm rather than assume), then the actual wrap-up: GitHub/Vercel
+  walkthrough instructions (can't do these two myself — no user
+  credentials), final snapshot.
 - Data model split, algorithm/maze-gen generator contracts, priority
   queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle, animation
-  accumulator pattern, `isBusy`/no-separate-lock reasoning: unchanged,
-  see earlier commits.
+  accumulator pattern, console design system: unchanged, see earlier
+  commits.
