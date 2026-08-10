@@ -10,7 +10,7 @@ Built as a final-year DSA project and CV piece: every visual element maps
 directly to a specific, explainable data structure or algorithm, and the
 codebase is small enough to walk through line-by-line in a viva.
 
-**Live demo:** _add your deployed URL here after following [Deploying](#deploying) below._
+**Live demo:** _https://pathvis-eta.vercel.app_
 
 ## Screenshots
 
