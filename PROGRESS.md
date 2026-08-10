@@ -18,129 +18,91 @@ Build order (from Build_Prompt_Pathfinding_Visualizer.md), 12 steps total:
 8. Comparison mode — ✅ done
 9. Styling pass — ✅ done
 10. Tests — ✅ done
-11. README + viva cheat sheet + demo script — ⬅ **next**
-12. Final build check
+11. README + viva cheat sheet + demo script — ✅ done
+12. Final build check — ⬅ **next (last step)**
 
 **Note on the user's situation:** the person building this cannot run
-`npm run dev` themselves at this stage, and I have no browser in this
-sandbox. Four Visualizer-tool previews so far covered every "hard to
-picture from text" visual step. Step 10 was pure logic/tooling (no new
-UI), so no preview was needed. Step 11 is documentation — also no preview
-needed, just real files.
+`npm run dev` themselves at this stage. Step 12 is verification + wrap-up,
+not new UI, so no Visualizer preview is needed for it.
 
 ---
 
 ## What's built so far
 
-### Steps 1-9
-Unchanged this step. All still verified clean. See git log for detail.
+### Steps 1-10
+Unchanged this step. All still verified clean (re-ran build/lint/test
+after adding documentation, since docs *could* in principle have broken
+something — e.g. a bad code fence — even though they don't touch source).
+See git log for per-step detail.
 
-### Step 10: Tests
-Turned every property already checked via the (now-deleted) `.scratch/*.ts`
-scripts into a real Vitest suite in top-level `/tests`, matching PRD §11:
+### Step 11: README + viva cheat sheet + demo script
+All three PRD deliverables (§12, items 3-5), written fresh but sourced
+from the app's own actual content wherever that content already existed
+(the `ALGORITHMS`/`MAZE_ALGORITHMS` registries' `howItWorks` fields and
+complexity values), not reinvented a third time:
 
-- **`tests/grid.test.ts`** (17 tests) — grid creation/neighbors/immutable
-  edits, plus the pure `gridEditing.ts` interaction rules (wall
-  draw/erase, mud toggle, anchor drag + rejection cases).
-- **`tests/mazeGen.test.ts`** (10 tests) — **PRD §11 requirement #1**:
-  both maze algorithms produce fully connected mazes (flood-fill
-  reachability == total passable cells) at 4 different sizes each,
-  `placeStartAndEnd` correctness, `generateMazeInstantly` end-to-end.
-- **`tests/algorithms.test.ts`** (21 tests) — **PRD §11 requirements
-  #2-4**: BFS/Dijkstra path-length agreement (open grid + real maze), A*
-  visited-count ≤ Dijkstra's (open grid + real maze, plus path-length
-  agreement), no-path handled gracefully for all four algorithms without
-  throwing. Plus general correctness (valid contiguous paths, start==end
-  edge case), the mud/weighted-terrain behavioral difference test,
-  `reconstructPath` edge cases, and `runAlgorithmInstantly` consistency.
-- **`tests/priorityQueue.test.ts`** (4 tests) — direct heap-property tests
-  for the hand-rolled `MinPriorityQueue`, including a 200-element
-  randomized stress test checked against `Array.sort`.
-- **`tests/animationEngine.test.ts`** (4 tests) — the accumulator pacing
-  pattern (steady-frame completion, dropped-frame burst, speed
-  differentiation) and the comparison-mode frame-sync property (two
-  different real algorithms, driven by identical synthetic timestamps,
-  checked frame-for-frame against each other).
-- **`tests/MANUAL_TEST_CHECKLIST.md`** — the PRD §11 "manual test
-  checklist for UI interactions" companion piece, covering exactly what
-  the automated suite deliberately doesn't (DOM/React behavior — see
-  decision #17 below). Organized by feature area (wall drawing, mud,
-  anchors, maze gen, single-mode visualize, comparison mode, reset/clear,
-  grid size, layout/accessibility), each item a single concrete action to
-  perform in a running `npm run dev` session.
-
-**56 tests, 5 files, all passing** — confirmed with `npm test`, not just
-type-checked. Also stress-ran the full suite **9 times in a row** given
-real randomness is involved (DFS's neighbor shuffle, the priority queue's
-randomized stress test, `Math.random()`-seeded maze generation) — zero
-flakiness across all 9 runs.
-
-### A real bug caught while writing these tests
-First `npm test` run: 55 passed, 1 failed — `generateMazeInstantly`
-"produces a fully connected maze" reported 199 reachable cells vs. 197
-expected. Root cause: my connectivity helper counted cells where
-`type === "empty"`, but `generateMazeInstantly` calls `placeStartAndEnd`,
-which turns exactly 2 carved cells into `type: "start"`/`"end"` — so
-`countByType(grid, "empty")` undercounts by exactly 2 once anchors exist
-(199 − 197 = 2, which is the tell). The earlier connectivity tests in the
-same file happened to pass anyway because they test the *raw* maze before
-`placeStartAndEnd` ever runs, so every passable cell really is type
-"empty" there. Fixed by counting all non-wall cells instead of
-specifically "empty" ones — correct for both the raw-maze and
-anchored-maze cases. This was a bug in the **test**, not the app (the app
-was already correct — the earlier scratch-script version of this same
-check had never exercised the anchored-maze path in a way that would have
-caught it).
+- **`README.md`** (root, overwrote the default Vite template) — overview,
+  feature list, tech-stack table with justifications, an architecture
+  section describing the actual folder structure and the generator-
+  function design decision that ties steps 4/6/7/8 together, run/test/
+  build instructions, and Vercel/Netlify deploy steps. Includes an
+  explicit **Live demo** placeholder line and a **Screenshots** section
+  that honestly explains why there isn't one yet (no browser in this
+  sandbox to capture one) rather than silently omitting it or faking
+  something — same transparency principle as every other capability gap
+  flagged during this build.
+- **`docs/VIVA_CHEAT_SHEET.md`** — one-page-scannable: algorithm
+  complexity table, "why A* beats Dijkstra," "why DFS isn't optimal," "how
+  maze generation guarantees solvability" (spanning-tree argument), plus
+  an 6-question rehearsed Q&A section (graph representation, lazy
+  deletion vs. decrease-key, no-path handling, why BFS ignores mud, how
+  the animation actually works, why generators specifically). Content
+  matches the in-app "How it works" panel's substance exactly, so nothing
+  said out loud in a viva contradicts what the product itself claims.
+- **`docs/DEMO_SCRIPT.md`** — a timed ~3-minute, 7-beat walkthrough
+  (orient → generate maze → BFS → DFS on the *same* maze → comparison
+  mode with Dijkstra vs A* on weighted terrain → stats panel → close)
+  with suggested narration for each beat, a pre-demo setup checklist, and
+  a "if something goes wrong live" section. Explicitly carries forward the
+  step-4 finding that DFS needs to run on a real maze (not a blank grid)
+  to actually look non-optimal — written as an instruction with the
+  reasoning attached, not just an unexplained rule.
 
 ### Verification status
-- `tsc -b`, `npm run build`, `npm run lint`: clean.
-- `npm test`: 56/56 passing, 5/5 files, re-run 9x with zero flakiness.
-- `.scratch/` deleted — fully superseded by `/tests`, and keeping both
-  around would just be two overlapping, not-quite-identical verification
-  layers, which is more confusing than having one real one.
+- `tsc -b`, `npm run build`, `npm run lint`, `npm test` (56/56): all
+  re-confirmed clean after adding the docs.
 
 ### Not started yet
-Steps 11-12 (see build order above).
+Step 12 (final build check) — the last one.
 
 ---
 
 ## Decisions the user should know about
-*(1-16 unchanged from before, see git log on earlier commits.)*
+*(1-18 unchanged from before, see git log on earlier commits.)*
 
-17. **No jsdom / React Testing Library was added.** The PRD's own §11
-    scopes UI-interaction testing to a *manual* checklist, not automated
-    component tests — I followed that rather than substituting my own
-    testing-strategy preference. Every pure-logic layer (which is
-    everything that isn't literally DOM/React plumbing) is covered by
-    real Vitest tests instead.
-18. **`.scratch/` was deleted**, not archived. It was explicitly always
-    described as throwaway (see step 2's decisions) and every property it
-    checked now has a permanent home in `/tests` with more rigor
-    (`expect()` assertions with real diffs on failure, not
-    `console.assert` + manual exit codes).
+19. **No screenshot/GIF was added to the README**, with an honest note
+    explaining why (no browser available in this sandbox) rather than a
+    placeholder image or a silently-skipped section. This is a real,
+    disclosed gap — the user should add one after their first local run,
+    per the README's own instruction.
+20. **Deploy/GitHub-push steps are written as instructions for the user
+    to follow**, not claimed as done — consistent with every earlier note
+    that I don't have their GitHub/Vercel credentials and can't act on
+    their behalf for those two specific things.
 
 ---
 
 ## Architecture notes (for my own future-session reference)
 
-- **For step 11, next:** README.md (architecture explanation, how to run,
-  algorithms used, live link placeholder since I can't deploy on the
-  user's behalf), `docs/VIVA_CHEAT_SHEET.md` (pull directly from
-  `ALGORITHMS`/`MAZE_ALGORITHMS`'s `howItWorks` + the complexity table
-  already in `AlgorithmDef` — don't rewrite this content a third time),
-  `docs/DEMO_SCRIPT.md` (PRD §12 deliverable #5 — a rehearsed ~3-minute
-  walkthrough: generate maze → run BFS → run DFS to contrast → comparison
-  mode with Dijkstra vs A* on a weighted maze → point at stats). Worth
-  remembering from step 4's testing: **run DFS on a maze or
-  obstacle-heavy grid for the demo, not a blank open grid** — on a fully
-  open grid DFS's shuffled-but-still-fairly-direct behavior is less
-  visually dramatic than on a real maze with dead ends to backtrack out
-  of.
-- **For step 12:** final build check — run build + full test suite one
-  more time after step 11's doc-only changes (shouldn't affect either,
-  but confirm rather than assume), then the actual wrap-up: GitHub/Vercel
-  walkthrough instructions (can't do these two myself — no user
-  credentials), final snapshot.
+- **For step 12 (final, next):** PRD's own §12 wants "confirmation that
+  tests pass and the production build is clean" as an explicit
+  deliverable — this step is that confirmation, run one final time end to
+  end (build, lint, test, plus a final review pass over the file tree for
+  anything stray), then the wrap-up message to the user: a summary of the
+  whole build, the final zip, and clear next actions for the two things
+  that need their own credentials (GitHub push, Vercel deploy) since
+  those can't be done on their behalf. This is the last step — no "next
+  up" section needed after this one.
 - Data model split, algorithm/maze-gen generator contracts, priority
   queue/BFS-queue/A*-heuristic choices, DFS neighbor shuffle, animation
   accumulator pattern, console design system: unchanged, see earlier
